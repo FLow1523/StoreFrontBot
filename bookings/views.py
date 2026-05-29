@@ -6,6 +6,9 @@ from .models import Booking
 from inventory.models import Product
 import json
 
+def landing(request):
+    return render(request, 'landing/index.html')
+
 @staff_member_required
 def dashboard(request):
     bookings = Booking.objects.all().order_by('-created_at')

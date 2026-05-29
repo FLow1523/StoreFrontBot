@@ -134,3 +134,5 @@ if os.getenv('DATABASE_URL'):
 CSRF_TRUSTED_ORIGINS = [
     'https://web-production-eac2c.up.railway.app',
 ]
+
+STATICFILES_DIRS = [BASE_DIR / 'static']

@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StorefrontBot — WhatsApp Automation for Smart Businesses</title>
+  <meta name="description" content="Automate your customer enquiries, bookings, and stock management through WhatsApp. Built for business owners who want to move fast.">
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'style.css' %}">
+</head>
+<body>
+
+<!-- ── TICKER ── -->
+<div class="ticker-wrap">
+  <div class="ticker-inner">
+    <!-- duplicate for seamless loop -->
+    <div class="ticker-item"><span>NEW</span> WhatsApp Business API integration now live <div class="ticker-dot"></div></div>
+    <div class="ticker-item">📦 Real-time stock sync with automatic low-stock alerts <div class="ticker-dot"></div></div>
+    <div class="ticker-item">🚀 Deploy your bot in under <span>10 minutes</span> <div class="ticker-dot"></div></div>
+    <div class="ticker-item">💬 Average response time: <span>0.3 seconds</span> <div class="ticker-dot"></div></div>
+    <div class="ticker-item">🌍 Serving businesses across <span>12 countries</span> <div class="ticker-dot"></div></div>
+    <div class="ticker-item">📅 Booking confirmations sent automatically via WhatsApp <div class="ticker-dot"></div></div>
+    <div class="ticker-item"><span>NEW</span> WhatsApp Business API integration now live <div class="ticker-dot"></div></div>
+    <div class="ticker-item">📦 Real-time stock sync with automatic low-stock alerts <div class="ticker-dot"></div></div>
+    <div class="ticker-item">🚀 Deploy your bot in under <span>10 minutes</span> <div class="ticker-dot"></div></div>
+    <div class="ticker-item">💬 Average response time: <span>0.3 seconds</span> <div class="ticker-dot"></div></div>
+    <div class="ticker-item">🌍 Serving businesses across <span>12 countries</span> <div class="ticker-dot"></div></div>
+    <div class="ticker-item">📅 Booking confirmations sent automatically via WhatsApp <div class="ticker-dot"></div></div>
+  </div>
+</div>
+
+<!-- ── NAV ── -->
+<nav>
+  <div class="nav-inner">
+    <a href="#" class="logo">
+      <div class="logo-mark">S</div>
+      StorefrontBot
+    </a>
+    <ul class="nav-links">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#pricing">Pricing</a></li>
+      <li><a href="#testimonials">Reviews</a></li>
+      <li><a href="#faq">FAQ</a></li>
+    </ul>
+    <div class="nav-cta">
+      <a href="/dashboard/" class="btn-ghost">Dashboard</a>
+      <a href="#pricing" class="btn-primary">Get Started</a>
+    </div>
+    <button class="hamburger" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+
+<!-- Mobile menu -->
+<div class="mobile-menu">
+  <a href="#features">Features</a>
+  <a href="#pricing">Pricing</a>
+  <a href="#testimonials">Reviews</a>
+  <a href="#faq">FAQ</a>
+  <a href="/dashboard/" class="btn-primary" style="text-align:center;padding:14px;border-radius:10px;">Dashboard</a>
+</div>
+
+<!-- ── HERO ── -->
+<section id="hero">
+  <div class="grid-texture"></div>
+  <div class="grid-texture-br"></div>
+  <div class="hero-inner">
+    <div class="hero-left">
+      <div class="eyebrow reveal">WhatsApp Automation Platform</div>
+      <h1 class="reveal reveal-d1">
+        Your business,<br>
+        running on<br>
+        <span class="gradient-text">autopilot.</span>
+      </h1>
+      <p class="reveal reveal-d2">
+        StorefrontBot handles your customer enquiries, bookings, and stock — all through WhatsApp. No app downloads. No friction. Just business moving faster.
+      </p>
+      <div class="hero-actions reveal reveal-d3">
+        <a href="#pricing" class="btn-primary">Start free trial →</a>
+        <a href="#features" class="btn-ghost">See how it works</a>
+      </div>
+    </div>
+
+    <div class="hero-right reveal reveal-d2">
+      <!-- floating badges -->
+      <div class="float-badge badge-tl">
+        <div class="float-badge-icon">📅</div>
+        <div>
+          <div class="float-badge-text">Booking confirmed</div>
+          <div class="float-badge-sub">Sarah M. · just now</div>
+        </div>
+      </div>
+
+      <!-- Dashboard mockup -->
+      <div class="dash-card">
+        <div class="dash-header">
+          <div class="dash-header-left">⚡ StorefrontBot</div>
+          <div class="dash-header-right">
+            <div class="dash-dot d1"></div>
+            <div class="dash-dot d2"></div>
+            <div class="dash-dot d3"></div>
+          </div>
+        </div>
+
+        <div class="dash-stats">
+          <div class="dash-stat">
+            <div class="dash-stat-num">128</div>
+            <div class="dash-stat-lbl">Bookings</div>
+          </div>
+          <div class="dash-stat">
+            <div class="dash-stat-num">47</div>
+            <div class="dash-stat-lbl">Pending</div>
+          </div>
+          <div class="dash-stat">
+            <div class="dash-stat-num">3</div>
+            <div class="dash-stat-lbl">Products</div>
+          </div>
+        </div>
+
+        <div class="dash-chart">
+          <div class="dash-chart-header">
+            <div class="dash-chart-title">Messages received</div>
+            <div class="period-btns">
+              <button class="period-btn active" data-period="7D">7D</button>
+              <button class="period-btn" data-period="1M">1M</button>
+              <button class="period-btn" data-period="3M">3M</button>
+              <button class="period-btn" data-period="1Y">1Y</button>
+            </div>
+          </div>
+          <div class="bars">
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+          </div>
+        </div>
+
+        <div class="dash-bookings">
+          <div class="dash-booking-row">
+            <div>
+              <div class="booking-info">Sarah Mbinge</div>
+              <div class="booking-time">Today · 10:00 AM · Consultation</div>
+            </div>
+            <span class="booking-badge">Confirmed</span>
+          </div>
+          <div class="dash-booking-row">
+            <div>
+              <div class="booking-info">John Amupolo</div>
+              <div class="booking-time">Today · 2:30 PM · Follow-up</div>
+            </div>
+            <span class="booking-badge">Confirmed</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="float-badge badge-br">
+        <div class="float-badge-icon">📦</div>
+        <div>
+          <div class="float-badge-text">Stock updated</div>
+          <div class="float-badge-sub">12 items · 2m ago</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── LOGOS ── -->
+<section id="logos">
+  <div class="logos-label">Trusted by growing businesses</div>
+  <div class="logos-track">
+    <div class="logo-pill"><div class="logo-pill-icon">💈</div> Apex Barbershop</div>
+    <div class="logo-pill"><div class="logo-pill-icon">🍽️</div> Kalahari Eats</div>
+    <div class="logo-pill"><div class="logo-pill-icon">🏋️</div> FitZone Gym</div>
+    <div class="logo-pill"><div class="logo-pill-icon">👗</div> Lux Boutique</div>
+    <div class="logo-pill"><div class="logo-pill-icon">🏥</div> MedCare Clinic</div>
+    <div class="logo-pill"><div class="logo-pill-icon">📸</div> Pixel Studios</div>
+    <div class="logo-pill"><div class="logo-pill-icon">🚗</div> AutoPro Garage</div>
+    <!-- duplicate -->
+    <div class="logo-pill"><div class="logo-pill-icon">💈</div> Apex Barbershop</div>
+    <div class="logo-pill"><div class="logo-pill-icon">🍽️</div> Kalahari Eats</div>
+    <div class="logo-pill"><div class="logo-pill-icon">🏋️</div> FitZone Gym</div>
+    <div class="logo-pill"><div class="logo-pill-icon">👗</div> Lux Boutique</div>
+    <div class="logo-pill"><div class="logo-pill-icon">🏥</div> MedCare Clinic</div>
+    <div class="logo-pill"><div class="logo-pill-icon">📸</div> Pixel Studios</div>
+    <div class="logo-pill"><div class="logo-pill-icon">🚗</div> AutoPro Garage</div>
+  </div>
+</section>
+
+<!-- ── STATS ── -->
+<section id="stats">
+  <div class="inner">
+    <div class="stats-grid">
+      <div class="stat-cell reveal">
+        <div class="stat-icon-ring">💬</div>
+        <div class="stat-num" data-count="50000" data-suffix="+">0</div>
+        <div class="stat-label">Messages handled</div>
+      </div>
+      <div class="stat-cell reveal reveal-d1">
+        <div class="stat-icon-ring">📅</div>
+        <div class="stat-num" data-count="12400" data-suffix="+">0</div>
+        <div class="stat-label">Bookings saved</div>
+      </div>
+      <div class="stat-cell reveal reveal-d2">
+        <div class="stat-icon-ring">⚡</div>
+        <div class="stat-num" data-count="99" data-suffix="%">0</div>
+        <div class="stat-label">Uptime</div>
+      </div>
+      <div class="stat-cell reveal reveal-d3">
+        <div class="stat-icon-ring">🌍</div>
+        <div class="stat-num" data-count="12" data-suffix="">0</div>
+        <div class="stat-label">Countries served</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FEATURES ── -->
+<section id="features">
+  <div class="inner">
+    <div class="features-intro reveal">
+      <div class="eyebrow">Platform features</div>
+      <h2>Everything your business needs, through WhatsApp.</h2>
+      <p>Three powerful modules. One clean bot. Zero complexity for your customers.</p>
+    </div>
+
+    <div class="features-stack">
+      <div class="features-cards">
+
+        <div class="feature-card reveal" data-preview="chat">
+          <div class="feature-card-icon">💬</div>
+          <h3>WhatsApp Chatbot</h3>
+          <p>Instant, automated replies to customer enquiries. Interactive menus guide users through bookings, stock checks, and support — all inside WhatsApp.</p>
+        </div>
+
+        <div class="feature-card reveal reveal-d1" data-preview="bookings">
+          <div class="feature-card-icon">📅</div>
+          <h3>Smart Booking System</h3>
+          <p>Customers book in seconds through conversation. Every booking is saved to your dashboard with name, date, time, and service — ready to confirm or cancel.</p>
+        </div>
+
+        <div class="feature-card reveal reveal-d2" data-preview="stock">
+          <div class="feature-card-icon">📦</div>
+          <h3>Live Stock Management</h3>
+          <p>Customers can check product availability in real time. You control quantities from the dashboard. Low stock? Instantly reflected in the bot's replies.</p>
+        </div>
+
+      </div>
+
+      <div class="features-preview">
+        <!-- Chat preview -->
+        <div class="preview-panel" id="preview-chat">
+          <div class="preview-panel-header">
+            <div class="preview-panel-dot"></div>
+            StorefrontBot · WhatsApp
+          </div>
+          <div class="preview-panel-body">
+            <div class="chat-msgs">
+              <div class="chat-bubble chat-in">Hi there! 👋</div>
+              <div class="chat-bubble chat-out">
+                👋 Welcome to StorefrontBot!<br><br>
+                1️⃣ Make a booking<br>
+                2️⃣ Check stock<br>
+                3️⃣ Contact support<br><br>
+                Reply with a number.
+              </div>
+              <div class="chat-bubble chat-in">1</div>
+              <div class="chat-bubble chat-out">📅 Let's book you in!<br><br>What is your full name?</div>
+              <div class="chat-bubble chat-in">Sarah Mbinge</div>
+              <div class="chat-bubble chat-out">Thanks Sarah! 😊<br><br>What date works for you?</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bookings preview -->
+        <div class="preview-panel" id="preview-bookings">
+          <div class="preview-panel-header">
+            <div class="preview-panel-dot"></div>
+            Dashboard · Bookings
+          </div>
+          <div class="preview-panel-body">
+            <table class="preview-table">
+              <thead>
+                <tr>
+                  <th>Name</th><th>Date</th><th>Service</th><th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>Sarah M.</td><td>Jun 10</td><td>Consultation</td><td><span class="badge-small b-green">Confirmed</span></td></tr>
+                <tr><td>John A.</td><td>Jun 11</td><td>Follow-up</td><td><span class="badge-small b-green">Confirmed</span></td></tr>
+                <tr><td>Maria K.</td><td>Jun 12</td><td>Consultation</td><td><span class="badge-small b-yellow">Pending</span></td></tr>
+                <tr><td>David N.</td><td>Jun 13</td><td>Other</td><td><span class="badge-small b-yellow">Pending</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Stock preview -->
+        <div class="preview-panel" id="preview-stock">
+          <div class="preview-panel-header">
+            <div class="preview-panel-dot"></div>
+            Dashboard · Stock
+          </div>
+          <div class="preview-panel-body">
+            <div class="stock-list">
+              <div class="stock-row">
+                <div>
+                  <div class="stock-name">Laptop</div>
+                  <div class="stock-meta">N$15,000 · 5 units</div>
+                </div>
+                <div class="stock-bar-wrap"><div class="stock-bar" style="width:83%"></div></div>
+              </div>
+              <div class="stock-row">
+                <div>
+                  <div class="stock-name">Smartphone</div>
+                  <div class="stock-meta">N$8,000 · 10 units</div>
+                </div>
+                <div class="stock-bar-wrap"><div class="stock-bar" style="width:100%"></div></div>
+              </div>
+              <div class="stock-row">
+                <div>
+                  <div class="stock-name">Headphones</div>
+                  <div class="stock-meta">N$1,700 · 2 units</div>
+                </div>
+                <div class="stock-bar-wrap"><div class="stock-bar low" style="width:20%"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── PRICING ── -->
+<section id="pricing">
+  <div class="inner">
+    <div class="pricing-intro reveal">
+      <div class="eyebrow">Simple pricing</div>
+      <h2>Pick your plan.</h2>
+      <p>No hidden fees. Cancel anytime. Start free and scale as your business grows.</p>
+    </div>
+
+    <div class="billing-toggle reveal">
+      <span class="toggle-label label-monthly active">Monthly</span>
+      <div class="toggle-switch" role="switch" aria-checked="false"></div>
+      <span class="toggle-label label-annual">Annual</span>
+      <span class="save-chip">Save 20%</span>
+    </div>
+
+    <div class="pricing-grid">
+      <!-- Starter -->
+      <div class="pricing-card reveal">
+        <div class="plan-name">Starter</div>
+        <div class="plan-price">
+          <span class="plan-currency">N$</span>
+          <span class="plan-amount price-monthly">499</span>
+          <span class="plan-amount price-annual">399</span>
+          <span class="plan-period">/month</span>
+        </div>
+        <div class="plan-desc">Perfect for solo operators and small businesses testing automation.</div>
+        <div class="plan-divider"></div>
+        <ul class="plan-features">
+          <li><span class="check-icon">✓</span> WhatsApp chatbot (1 number)</li>
+          <li><span class="check-icon">✓</span> Up to 500 messages/month</li>
+          <li><span class="check-icon">✓</span> Booking system</li>
+          <li><span class="check-icon">✓</span> Basic stock tracking</li>
+          <li><span class="check-icon">✓</span> Admin dashboard</li>
+        </ul>
+        <button class="plan-btn plan-btn-outline">Get started</button>
+      </div>
+
+      <!-- Growth -->
+      <div class="pricing-card popular reveal reveal-d1">
+        <div class="popular-tag">Most popular</div>
+        <div class="plan-name">Growth</div>
+        <div class="plan-price">
+          <span class="plan-currency">N$</span>
+          <span class="plan-amount price-monthly">1,299</span>
+          <span class="plan-amount price-annual">1,039</span>
+          <span class="plan-period">/month</span>
+        </div>
+        <div class="plan-desc">For businesses ready to scale enquiries and automate operations.</div>
+        <div class="plan-divider"></div>
+        <ul class="plan-features">
+          <li><span class="check-icon">✓</span> WhatsApp chatbot (3 numbers)</li>
+          <li><span class="check-icon">✓</span> Unlimited messages</li>
+          <li><span class="check-icon">✓</span> Full booking system + notifications</li>
+          <li><span class="check-icon">✓</span> Advanced stock management</li>
+          <li><span class="check-icon">✓</span> Priority support</li>
+          <li><span class="check-icon">✓</span> Custom bot replies</li>
+        </ul>
+        <button class="plan-btn plan-btn-solid">Get started</button>
+      </div>
+
+      <!-- Enterprise -->
+      <div class="pricing-card reveal reveal-d2">
+        <div class="plan-name">Enterprise</div>
+        <div class="plan-price">
+          <span class="plan-currency">N$</span>
+          <span class="plan-amount price-monthly">2,999</span>
+          <span class="plan-amount price-annual">2,399</span>
+          <span class="plan-period">/month</span>
+        </div>
+        <div class="plan-desc">Multi-location businesses and resellers with white-label needs.</div>
+        <div class="plan-divider"></div>
+        <ul class="plan-features">
+          <li><span class="check-icon">✓</span> Unlimited numbers</li>
+          <li><span class="check-icon">✓</span> Unlimited messages</li>
+          <li><span class="check-icon">✓</span> White-label dashboard</li>
+          <li><span class="check-icon">✓</span> Custom integrations</li>
+          <li><span class="check-icon">✓</span> Dedicated support</li>
+          <li><span class="check-icon">✓</span> SLA guarantee</li>
+        </ul>
+        <button class="plan-btn plan-btn-outline">Contact us</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── TESTIMONIALS ── -->
+<section id="testimonials">
+  <div class="inner">
+    <div class="testimonials-intro reveal">
+      <div class="eyebrow">Reviews</div>
+      <h2>What business owners say.</h2>
+      <p>Real feedback from real customers running StorefrontBot.</p>
+    </div>
+  </div>
+
+  <div class="testimonials-track-wrap">
+    <div class="testimonials-track">
+      <!-- Set 1 -->
+      <div class="testimonial-card">
+        <div class="testimonial-stars">★★★★★</div>
+        <div class="testimonial-text">"We used to miss bookings on weekends. Now the bot handles everything 24/7 and we wake up to confirmed appointments. It's like hiring a receptionist for N$500 a month."</div>
+        <div class="testimonial-author">
+          <div class="author-avatar">SM</div>
+          <div><div class="author-name">Sandra Muheua</div><div class="author-role">Salon Owner, Windhoek</div></div>
+        </div>
+      </div>
+
+      <div class="testimonial-card">
+        <div class="testimonial-stars">★★★★★</div>
+        <div class="testimonial-text">"My customers were WhatsApp-ing me stock questions at 11pm. StorefrontBot now answers instantly with live quantities. I sleep better, honestly."</div>
+        <div class="testimonial-author">
+          <div class="author-avatar">JN</div>
+          <div><div class="author-name">Jonas Nakale</div><div class="author-role">Hardware Store, Oshakati</div></div>
+        </div>
+      </div>
+
+      <div class="testimonial-card">
+        <div class="testimonial-stars">★★★★★</div>
+        <div class="testimonial-text">"Setup took 20 minutes. Within the first week we'd handled 300 enquiries without lifting a finger. The dashboard is clean and actually useful."</div>
+        <div class="testimonial-author">
+          <div class="author-avatar">TK</div>
+          <div><div class="author-name">Tuulikki Kali</div><div class="author-role">Fitness Studio, Swakopmund</div></div>
+        </div>
+      </div>
+
+      <div class="testimonial-card">
+        <div class="testimonial-stars">★★★★☆</div>
+        <div class="testimonial-text">"Reselling this to my clients is genuinely a great income stream. The white-label option on Enterprise is straightforward to set up. Support team is responsive."</div>
+        <div class="testimonial-author">
+          <div class="author-avatar">MO</div>
+          <div><div class="author-name">Moses Okafor</div><div class="author-role">Digital Agency, Lagos</div></div>
+        </div>
+      </div>
+
+      <div class="testimonial-card">
+        <div class="testimonial-stars">★★★★★</div>
+        <div class="testimonial-text">"The booking flow is super smooth. Customers love it because they never leave WhatsApp. We cut no-shows by 40% since adding automatic confirmations."</div>
+        <div class="testimonial-author">
+          <div class="author-avatar">AK</div>
+          <div><div class="author-name">Angela Kamati</div><div class="author-role">Medical Clinic, Rundu</div></div>
+        </div>
+      </div>
+
+      <!-- duplicate for loop -->
+      <div class="testimonial-card">
+        <div class="testimonial-stars">★★★★★</div>
+        <div class="testimonial-text">"We used to miss bookings on weekends. Now the bot handles everything 24/7 and we wake up to confirmed appointments. It's like hiring a receptionist for N$500 a month."</div>
+        <div class="testimonial-author">
+          <div class="author-avatar">SM</div>
+          <div><div class="author-name">Sandra Muheua</div><div class="author-role">Salon Owner, Windhoek</div></div>
+        </div>
+      </div>
+
+      <div class="testimonial-card">
+        <div class="testimonial-stars">★★★★★</div>
+        <div class="testimonial-text">"My customers were WhatsApp-ing me stock questions at 11pm. StorefrontBot now answers instantly with live quantities. I sleep better, honestly."</div>
+        <div class="testimonial-author">
+          <div class="author-avatar">JN</div>
+          <div><div class="author-name">Jonas Nakale</div><div class="author-role">Hardware Store, Oshakati</div></div>
+        </div>
+      </div>
+
+      <div class="testimonial-card">
+        <div class="testimonial-stars">★★★★★</div>
+        <div class="testimonial-text">"Setup took 20 minutes. Within the first week we'd handled 300 enquiries without lifting a finger. The dashboard is clean and actually useful."</div>
+        <div class="testimonial-author">
+          <div class="author-avatar">TK</div>
+          <div><div class="author-name">Tuulikki Kali</div><div class="author-role">Fitness Studio, Swakopmund</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="testimonials-controls">
+    <button class="pause-btn">⏸ Pause</button>
+  </div>
+</section>
+
+<!-- ── MOBILE APP ── -->
+<section id="mobile">
+  <div class="mobile-grid-tl"></div>
+  <div class="mobile-inner">
+    <div class="mobile-text">
+      <div class="eyebrow reveal">Mobile experience</div>
+      <h2 class="reveal reveal-d1">Your bot in every customer's pocket.</h2>
+      <p class="reveal reveal-d2">StorefrontBot works inside WhatsApp — where your customers already are. No app to download, no friction, no drop-off. Just fast, familiar conversations that convert.</p>
+      <div class="store-btns reveal reveal-d3">
+        <a href="#" class="store-btn">
+          <span class="store-btn-icon">🍎</span>
+          <div>
+            <div class="store-btn-text-top">Download on the</div>
+            <div class="store-btn-text-bot">App Store</div>
+          </div>
+        </a>
+        <a href="#" class="store-btn">
+          <span class="store-btn-icon">▶</span>
+          <div>
+            <div class="store-btn-text-top">Get it on</div>
+            <div class="store-btn-text-bot">Google Play</div>
+          </div>
+        </a>
+        <a href="#" class="store-btn">
+          <span class="store-btn-icon">📷</span>
+          <div>
+            <div class="store-btn-text-top">Scan</div>
+            <div class="store-btn-text-bot">QR Code</div>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <div class="phone-mockup-wrap reveal reveal-d2">
+      <div class="phone-mockup">
+        <div class="phone-notch"></div>
+        <div class="phone-screen">
+          <div class="phone-screen-top">
+            <span>StorefrontBot</span>
+            <span class="accent">● Online</span>
+          </div>
+          <div class="phone-msgs">
+            <div class="phone-msg in">Hi, I need to book an appointment 👋</div>
+            <div class="phone-msg out">
+              📅 Let's book you in!<br><br>What is your full name?
+            </div>
+            <div class="phone-msg in">Sarah Mbinge</div>
+            <div class="phone-msg out">Thanks Sarah! 😊<br><br>What date works for you?<br>(e.g. June 10, 2026)</div>
+            <div class="phone-msg in">June 15, 2026</div>
+            <div class="typing-dots"><span></span><span></span><span></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FAQ ── -->
+<section id="faq">
+  <div class="faq-grid-tr"></div>
+  <div class="faq-inner">
+    <div class="eyebrow reveal" style="justify-content:center">Got questions?</div>
+    <h2 class="faq-title reveal reveal-d1">Frequently asked.</h2>
+    <p class="faq-subtitle reveal reveal-d2">Everything you need to know before getting started.</p>
+
+    <div class="faq-controls reveal reveal-d3">
+      <button class="faq-ctrl-btn" id="expand-all">Expand all</button>
+      <button class="faq-ctrl-btn" id="collapse-all">Collapse all</button>
+    </div>
+
+    <div class="faq-list">
+      <div class="faq-item">
+        <div class="faq-q">Do my customers need to download anything? <span class="faq-arrow">+</span></div>
+        <div class="faq-a"><div class="faq-a-inner">No. StorefrontBot works entirely inside WhatsApp. Your customers just message your business number like normal — the bot handles the rest automatically. No apps, no signups, no friction.</div></div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">How long does setup take? <span class="faq-arrow">+</span></div>
+        <div class="faq-a"><div class="faq-a-inner">Most businesses are live within 30 minutes. You'll connect your WhatsApp Business number, set up your services and products in the dashboard, and your bot is ready to go. No coding required on the Starter and Growth plans.</div></div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">What happens when someone messages outside business hours? <span class="faq-arrow">+</span></div>
+        <div class="faq-a"><div class="faq-a-inner">The bot runs 24/7 — it never sleeps. Whether it's 2am or a public holiday, your customers get instant replies, can book appointments, and check stock availability. You review everything from the dashboard when you're ready.</div></div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Can I customise what the bot says? <span class="faq-arrow">+</span></div>
+        <div class="faq-a"><div class="faq-a-inner">Yes. On Growth and Enterprise plans you can fully customise the bot's replies, menu options, service names, and tone. The Starter plan includes a default set of templates that covers most use cases out of the box.</div></div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Can I resell StorefrontBot to my own clients? <span class="faq-arrow">+</span></div>
+        <div class="faq-a"><div class="faq-a-inner">Absolutely. The Enterprise plan includes white-labelling — you can rebrand the dashboard with your own logo and colors and resell it as your own product. Many of our customers use this as a standalone income stream.</div></div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">What WhatsApp API does it use? <span class="faq-arrow">+</span></div>
+        <div class="faq-a"><div class="faq-a-inner">StorefrontBot works with both Twilio's WhatsApp Sandbox (great for testing and early-stage businesses) and Meta's official WhatsApp Business Platform (recommended for production). We handle the integration — you just connect your number.</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA ── -->
+<section id="cta">
+  <div class="inner">
+    <div class="cta-card reveal">
+      <div class="cta-glow"></div>
+      <div class="eyebrow" style="justify-content:center; position:relative;">Ready to automate?</div>
+      <h2>Start your free trial today.</h2>
+      <p>No credit card required. Set up in 30 minutes. Cancel anytime.</p>
+      <div class="cta-actions">
+        <a href="#pricing" class="btn-primary">Get started free →</a>
+        <a href="/dashboard/" class="btn-ghost">View dashboard</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-copy">© 2026 StorefrontBot. Built in Namibia 🇳🇦</div>
+    <div class="footer-links">
+      <a href="#">Privacy</a>
+      <a href="#">Terms</a>
+      <a href="#">Contact</a>
+    </div>
+    <div class="footer-socials">
+      <a href="#" title="Twitter">𝕏</a>
+      <a href="#" title="LinkedIn">in</a>
+      <a href="#" title="WhatsApp">💬</a>
+    </div>
+  </div>
+</footer>
+
+<script src="{% static 'script.js' %}"></script>
+
+<!-- Wire up feature card clicks to preview panels -->
+<script>
+  const cards = document.querySelectorAll('.feature-card');
+  const panels = {
+    0: 'preview-chat',
+    1: 'preview-bookings',
+    2: 'preview-stock',
+  };
+  cards.forEach((card, i) => {
+    card.addEventListener('click', () => {
+      document.querySelectorAll('.preview-panel').forEach(p => p.classList.remove('active'));
+      const target = document.getElementById(panels[i]);
+      if (target) target.classList.add('active');
+    });
+  });
+  // default
+  const firstPanel = document.getElementById('preview-chat');
+  if (firstPanel) firstPanel.classList.add('active');
+</script>
+</body>
+</html>
