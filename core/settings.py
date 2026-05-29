@@ -130,3 +130,7 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 # Database from environment
 if os.getenv('DATABASE_URL'):
     DATABASES['default'] = dj_database_url.config(conn_max_age=600)
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://web-production-eac2c.up.railway.app',
+]
