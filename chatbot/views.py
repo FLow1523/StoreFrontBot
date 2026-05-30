@@ -73,7 +73,7 @@ Customer message: {user_message}
 
 Conversation so far: {json.dumps(session.get("history", [])[-6:])}"""
 
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    model = genai.GenerativeModel("gemini-2.0-flash")
     response = model.generate_content(prompt)
     raw = response.text.strip()
 
