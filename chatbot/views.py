@@ -138,6 +138,7 @@ def webhook(request):
         try:
             result = ask_groq(text, session)
             reply = result.get("reply", "Sorry, something went wrong. Try again!")
+            reply = reply.replace('\\n', '\n')
             action = result.get("action", "none")
             booking_data = result.get("booking_data", {})
 
