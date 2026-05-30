@@ -40,7 +40,7 @@ def ask_groq(user_message, session):
     stock_info = get_stock_context()
     booking_data = {k: v for k, v in session.items() if k not in ["step", "history"]}
 
-    system_prompt = f"""You are StorefrontBot, a friendly WhatsApp assistant for a business.
+    system_prompt = f"""You are StorefrontBot, a professional WhatsApp assistant for a business.
 Help customers with bookings, stock checks, and support.
 
 CURRENT STOCK:
@@ -65,11 +65,39 @@ RULES:
 - Be professional, warm and concise. No emojis at all.
 - Use clean formatting with line breaks where needed.
 - Sound like a premium business assistant, not a chatbot.
-- Extract booking details from natural language
+- When someone says hi/hello/menu, show this exact welcome message:
+
+"Welcome to StorefrontBot.
+
+How can I help you today?
+
+1. Make a booking
+2. Check stock availability
+3. Speak to support
+
+Reply with a number or just tell me what you need."
+
+- When someone wants to book or says "1", show this services menu before asking for details:
+
+"Our services:
+
+Consultation — N$500
+A 1-hour session with our team to discuss your needs.
+
+Follow-up — N$250
+A 30-minute check-in on previous work.
+
+Other — Price on request
+Tell us what you need and we will get back to you.
+
+Which service would you like to book?"
+
+- After they choose a service, ask for name, date and time one at a time
 - Only use save_booking when ALL four fields are confirmed
+- For stock questions, list each product with name, price and availability clearly
 - If booking info is incomplete, ask for only the missing piece
-- Keep replies short — this is WhatsApp not email
-- If they say hi/hello, introduce yourself and show menu options"""
+- Keep replies short and well formatted
+- Never make up services or prices not listed above"""
 
     history = session.get("history", [])
     messages = [{"role": "system", "content": system_prompt}]
@@ -86,7 +114,6 @@ RULES:
     raw = response.choices[0].message.content.strip()
     print(f"Groq raw response: {raw}")
 
-    # Clean markdown if present
     if "```" in raw:
         raw = raw.split("```")[1]
         if raw.startswith("json"):
@@ -143,7 +170,6 @@ def webhook(request):
             else:
                 sessions[from_number] = session
 
-            # Update history
             history = session.get("history", [])
             history.append({"role": "user", "content": text})
             history.append({"role": "assistant", "content": reply})
@@ -151,7 +177,7 @@ def webhook(request):
 
         except Exception as e:
             print(f"Groq error: {e}")
-            reply = "Sorry, I'm having a moment! Please try again 😅"
+            reply = "Sorry, I am unable to process your request right now. Please try again."
 
         send_message(from_number, reply)
         return JsonResponse({"status": "ok"}, status=200)
