@@ -119,16 +119,26 @@ Which service would you like to book?"
         if raw.startswith("json"):
             raw = raw[4:]
 
-    # Fix control characters
     raw = raw.strip()
-    raw = raw.replace('\n', '\\n').replace('\r', '')
     
-    # But don't double-escape if already escaped
-    raw = raw.replace('\\\\n', '\\n')
-    
-    return json.loads(raw)
-
-    return json.loads(raw.strip())
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        # Extract reply manually if JSON is malformed
+        import re
+        reply_match = re.search(r'"reply"\s*:\s*"(.*?)"(?=\s*,\s*"action")', raw, re.DOTALL)
+        if reply_match:
+            reply_text = reply_match.group(1).replace('\\n', '\n')
+            return {
+                "reply": reply_text,
+                "action": "none",
+                "booking_data": {"name": None, "date": None, "time": None, "service": None}
+            }
+        return {
+            "reply": "Welcome to StorefrontBot.\n\nHow can I help you today?\n\n1. Make a booking\n2. Check stock availability\n3. Speak to support",
+            "action": "none",
+            "booking_data": {"name": None, "date": None, "time": None, "service": None}
+        }
 
 @csrf_exempt
 def webhook(request):
