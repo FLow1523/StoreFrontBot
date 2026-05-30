@@ -6,6 +6,7 @@ from inventory.models import Product
 from groq import Groq
 import os
 import json
+import re
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -35,6 +36,11 @@ def get_stock_context():
         lines.append(f"- {p.name}: N${p.price}, {p.quantity} units, {status}")
     return "\n".join(lines)
 
+def fix_linebreaks(text):
+    text = text.replace("[BR]", "\n")
+    text = text.replace("\\n", "\n")
+    return text
+
 def ask_groq(user_message, session):
     client = Groq(api_key=GROQ_API_KEY)
     stock_info = get_stock_context()
@@ -52,31 +58,24 @@ BUSINESS HOURS: Monday to Friday, 8am to 5pm
 BOOKING IN PROGRESS: {json.dumps(booking_data) if booking_data else "None"}
 
 You must respond with a JSON object only — no other text, no markdown, no backticks.
+Use [BR] for line breaks inside the reply string. Never use actual newlines inside JSON strings.
+
 Format:
-{{
-  "reply": "your WhatsApp message to the customer",
-  "action": "none" | "start_booking" | "save_booking" | "check_stock" | "support",
-  "booking_data": {{
-    "name": "name or null",
-    "date": "date or null",
-    "time": "time or null",
-    "service": "Consultation | Follow-up | Other or null"
-  }}
-}}
+{{"reply": "your message with [BR] for line breaks", "action": "none", "booking_data": {{"name": null, "date": null, "time": null, "service": null}}}}
 
 RULES:
 - Be professional, warm and concise. No emojis at all.
 - Sound like a premium business assistant, not a chatbot.
-- When someone says hi/hello/menu, reply with exactly this text: "Welcome to StorefrontBot.\n\nHow can I help you today?\n\n1. Make a booking\n2. Check stock availability\n3. Speak to support\n\nReply with a number or just tell me what you need."
-- When someone wants to book or says "1", reply with exactly this text: "Our services:\n\nConsultation — N$500\nA 1-hour session with our team to discuss your needs.\n\nFollow-up — N$250\nA 30-minute check-in on previous work.\n\nOther — Price on request\nTell us what you need and we will get back to you.\n\nWhich service would you like to book?"
+- Use [BR] for every line break in your reply.
+- When someone says hi/hello/menu, reply with: "Welcome to StorefrontBot.[BR][BR]How can I help you today?[BR][BR]1. Make a booking[BR]2. Check stock availability[BR]3. Speak to support[BR][BR]Reply with a number or just tell me what you need."
+- When someone wants to book or says "1", reply with: "Our services:[BR][BR]Consultation - N$500[BR]A 1-hour session with our team.[BR][BR]Follow-up - N$250[BR]A 30-minute check-in on previous work.[BR][BR]Other - Price on request[BR]Tell us what you need and we will get back to you.[BR][BR]Which service would you like to book?"
 - After they choose a service, ask for name, date and time one at a time
 - Only use save_booking when ALL four fields are confirmed
-- For stock questions, list each product with name, price and availability clearly
+- For stock questions, list each product with name, price and availability
 - If booking info is incomplete, ask for only the missing piece
-- Keep replies short and well formatted
 - Never make up services or prices not listed above
-- If someone asks where we are located, say: Windhoek, Namibia. Monday to Friday, 8am to 5pm.
-- If they seem confused, ask: Would you like to make a booking, check stock, or speak to support?"""
+- If someone asks where we are located say: Windhoek, Namibia. Monday to Friday, 8am to 5pm.
+- If they seem confused ask: Would you like to make a booking, check stock, or speak to support?"""
 
     history = session.get("history", [])
     messages = [{"role": "system", "content": system_prompt}]
@@ -91,7 +90,7 @@ RULES:
     )
 
     raw = response.choices[0].message.content.strip()
-    print(f"Groq raw response: {raw}")
+    print(f"Groq raw: {raw}")
 
     if "```" in raw:
         raw = raw.split("```")[1]
@@ -99,16 +98,15 @@ RULES:
             raw = raw[4:]
 
     raw = raw.strip()
-    
+
     try:
         parsed = json.loads(raw)
-        parsed["reply"] = parsed["reply"].replace("\\n", "\n")
+        parsed["reply"] = fix_linebreaks(parsed["reply"])
         return parsed
     except json.JSONDecodeError:
-        import re
         reply_match = re.search(r'"reply"\s*:\s*"(.*?)"(?=\s*,\s*"action")', raw, re.DOTALL)
         if reply_match:
-            reply_text = reply_match.group(1).replace("\\n", "\n")
+            reply_text = fix_linebreaks(reply_match.group(1))
             return {
                 "reply": reply_text,
                 "action": "none",
@@ -139,7 +137,6 @@ def webhook(request):
         try:
             result = ask_groq(text, session)
             reply = result.get("reply", "Sorry, something went wrong. Try again!")
-            reply = reply.replace('\\n', '\n')
             action = result.get("action", "none")
             booking_data = result.get("booking_data", {})
 
