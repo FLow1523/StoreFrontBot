@@ -119,6 +119,15 @@ Which service would you like to book?"
         if raw.startswith("json"):
             raw = raw[4:]
 
+    # Fix control characters
+    raw = raw.strip()
+    raw = raw.replace('\n', '\\n').replace('\r', '')
+    
+    # But don't double-escape if already escaped
+    raw = raw.replace('\\\\n', '\\n')
+    
+    return json.loads(raw)
+
     return json.loads(raw.strip())
 
 @csrf_exempt
