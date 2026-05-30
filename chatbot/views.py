@@ -62,7 +62,9 @@ Format:
 }}
 
 RULES:
-- Be warm, friendly, use emojis naturally
+- Be professional, warm and concise. No emojis at all.
+- Use clean formatting with line breaks where needed.
+- Sound like a premium business assistant, not a chatbot.
 - Extract booking details from natural language
 - Only use save_booking when ALL four fields are confirmed
 - If booking info is incomplete, ask for only the missing piece
