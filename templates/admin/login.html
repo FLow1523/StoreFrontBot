@@ -1,0 +1,163 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StorefrontBot — Login</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#0c0f17;--surface:#111520;--surface2:#161b2e;
+      --border:#1e2540;--accent:#3b9eff;--accent2:#00d4aa;
+      --text:#e6eaf5;--muted:#5a637d;
+      --silk:cubic-bezier(0.25,0.46,0.45,0.94);
+    }
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+    body{
+      background:var(--bg);color:var(--text);
+      font-family:'DM Sans',sans-serif;
+      min-height:100vh;display:flex;flex-direction:column;
+      align-items:center;justify-content:center;
+      position:relative;overflow:hidden;
+    }
+
+    /* grid bg */
+    .grid-bg{
+      position:fixed;inset:0;
+      background-image:
+        linear-gradient(rgba(59,158,255,0.04) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(59,158,255,0.04) 1px,transparent 1px);
+      background-size:48px 48px;
+      mask-image:radial-gradient(ellipse 80% 80% at 50% 50%,black 20%,transparent 80%);
+      pointer-events:none;
+    }
+    .glow{
+      position:fixed;
+      width:500px;height:500px;
+      background:radial-gradient(circle,rgba(59,158,255,0.07),transparent 70%);
+      top:50%;left:50%;transform:translate(-50%,-50%);
+      pointer-events:none;
+    }
+
+    /* logo top */
+    .login-logo{
+      display:flex;align-items:center;gap:10px;
+      font-family:'Outfit',sans-serif;font-weight:800;font-size:1.3rem;
+      color:var(--text);margin-bottom:32px;position:relative;
+      text-decoration:none;
+    }
+    .logo-mark{
+      width:30px;height:30px;background:var(--accent);border-radius:8px;
+      display:flex;align-items:center;justify-content:center;
+      font-size:0.9rem;color:#000;font-weight:900;
+    }
+
+    /* card */
+    .login-card{
+      background:var(--surface);
+      border:1px solid var(--border);
+      border-radius:20px;
+      padding:40px;
+      width:100%;max-width:400px;
+      position:relative;overflow:hidden;
+      box-shadow:0 32px 80px rgba(0,0,0,0.5);
+    }
+    .login-card::before{
+      content:'';position:absolute;top:0;left:0;right:0;height:2px;
+      background:linear-gradient(90deg,var(--accent),var(--accent2));
+    }
+
+    .login-title{
+      font-family:'Outfit',sans-serif;font-size:1.4rem;font-weight:800;
+      letter-spacing:-0.5px;margin-bottom:6px;
+    }
+    .login-sub{font-size:0.82rem;color:var(--muted);margin-bottom:28px;}
+
+    /* error */
+    .error-box{
+      background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);
+      border-radius:10px;padding:12px 16px;margin-bottom:20px;
+      font-size:0.82rem;color:#ef4444;
+    }
+
+    /* form */
+    .field{margin-bottom:18px;}
+    label{
+      display:block;font-size:0.75rem;font-weight:600;color:var(--muted);
+      text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;
+    }
+    input[type="text"],input[type="password"]{
+      width:100%;background:var(--surface2);border:1px solid var(--border);
+      border-radius:10px;padding:12px 16px;color:var(--text);
+      font-family:'DM Sans',sans-serif;font-size:0.9rem;outline:none;
+      transition:border-color 0.2s var(--silk);
+    }
+    input[type="text"]:focus,input[type="password"]:focus{
+      border-color:var(--accent);
+      box-shadow:0 0 0 3px rgba(59,158,255,0.1);
+    }
+    input::placeholder{color:var(--muted);}
+
+    .login-btn{
+      width:100%;padding:13px;border-radius:10px;
+      background:var(--accent);color:#000;
+      font-family:'Outfit',sans-serif;font-size:1rem;font-weight:700;
+      cursor:pointer;border:none;margin-top:8px;
+      transition:all 0.2s var(--silk);
+    }
+    .login-btn:hover{
+      transform:translateY(-1px);
+      box-shadow:0 8px 24px rgba(59,158,255,0.3);
+    }
+
+    .login-footer{
+      text-align:center;margin-top:24px;
+      font-size:0.78rem;color:var(--muted);
+    }
+    .login-footer a{color:var(--accent);text-decoration:none;}
+    .login-footer a:hover{text-decoration:underline;}
+  </style>
+</head>
+<body>
+  <div class="grid-bg"></div>
+  <div class="glow"></div>
+
+  <a href="/" class="login-logo">
+    <div class="logo-mark">S</div>
+    StorefrontBot
+  </a>
+
+  <div class="login-card">
+    <div class="login-title">Welcome back</div>
+    <div class="login-sub">Sign in to your dashboard</div>
+
+    {% if form.errors %}
+    <div class="error-box">
+      ⚠️ Incorrect username or password. Please try again.
+    </div>
+    {% endif %}
+
+    <form method="post" action="{% url 'admin:login' %}">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ next }}">
+
+      <div class="field">
+        <label for="id_username">Username</label>
+        <input type="text" id="id_username" name="username" placeholder="Enter your username" autofocus>
+      </div>
+
+      <div class="field">
+        <label for="id_password">Password</label>
+        <input type="password" id="id_password" name="password" placeholder="Enter your password">
+      </div>
+
+      <button type="submit" class="login-btn">Sign in →</button>
+    </form>
+
+    <div class="login-footer">
+      <a href="/">← Back to home</a>
+    </div>
+  </div>
+</body>
+</html>S
