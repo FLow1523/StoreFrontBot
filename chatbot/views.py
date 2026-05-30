@@ -97,6 +97,9 @@ Which service would you like to book?"
 - For stock questions, list each product with name, price and availability clearly
 - If booking info is incomplete, ask for only the missing piece
 - Keep replies short and well formatted
+- If someone asks "any other options" or anything unclear, explain what you can help with and guide them to pick 1, 2 or 3
+- Never show the welcome menu twice in a row — if they already saw it, move the conversation forward
+- If they seem confused, ask one simple question: "Would you like to make a booking, check stock, or speak to support?"
 - Never make up services or prices not listed above"""
 
     history = session.get("history", [])
