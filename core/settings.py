@@ -30,6 +30,7 @@ ALLOWED_HOSTS = ['*']
 
 # Application definition
 INSTALLED_APPS = [
+    'jazzmin',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -136,3 +137,21 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 STATICFILES_DIRS = [BASE_DIR / 'static']
+
+JAZZMIN_SETTINGS = {
+    "site_title": "StorefrontBot",
+    "site_header": "StorefrontBot",
+    "site_brand": "⚡ StorefrontBot",
+    "welcome_sign": "Welcome to StorefrontBot Admin",
+    "site_logo": None,
+    "show_sidebar": True,
+    "navigation_expanded": True,
+    "theme": "darkly",
+    "dark_mode_theme": "darkly",
+    "icons": {
+        "auth": "fas fa-users-cog",
+        "auth.user": "fas fa-user",
+        "bookings.booking": "fas fa-calendar",
+        "inventory.product": "fas fa-box",
+    },
+}
