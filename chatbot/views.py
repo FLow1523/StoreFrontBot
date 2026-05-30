@@ -101,20 +101,21 @@ RULES:
     raw = raw.strip()
     
     try:
-        return json.loads(raw)
+        parsed = json.loads(raw)
+        parsed["reply"] = parsed["reply"].replace("\\n", "\n")
+        return parsed
     except json.JSONDecodeError:
-        # Extract reply manually if JSON is malformed
         import re
         reply_match = re.search(r'"reply"\s*:\s*"(.*?)"(?=\s*,\s*"action")', raw, re.DOTALL)
         if reply_match:
-            reply_text = reply_match.group(1).replace('\\n', '\n')
+            reply_text = reply_match.group(1).replace("\\n", "\n")
             return {
                 "reply": reply_text,
                 "action": "none",
                 "booking_data": {"name": None, "date": None, "time": None, "service": None}
             }
         return {
-            "reply": "Welcome to StorefrontBot.\n\nHow can I help you today?\n\n1. Make a booking\n2. Check stock availability\n3. Speak to support",
+            "reply": "Welcome to StorefrontBot.\n\nHow can I help you today?\n\n1. Make a booking\n2. Check stock availability\n3. Speak to support\n\nReply with a number or just tell me what you need.",
             "action": "none",
             "booking_data": {"name": None, "date": None, "time": None, "service": None}
         }
