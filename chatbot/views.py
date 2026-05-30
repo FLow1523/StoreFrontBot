@@ -3,7 +3,7 @@ from django.views.decorators.csrf import csrf_exempt
 from twilio.rest import Client
 from bookings.models import Booking
 from inventory.models import Product
-import google.generativeai as genai
+from groq import Groq
 import os
 import json
 from dotenv import load_dotenv
@@ -13,9 +13,7 @@ load_dotenv()
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 TWILIO_WHATSAPP_NUMBER = os.getenv("TWILIO_WHATSAPP_NUMBER")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-
-genai.configure(api_key=GEMINI_API_KEY)
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 sessions = {}
 
@@ -37,11 +35,12 @@ def get_stock_context():
         lines.append(f"- {p.name}: N${p.price}, {p.quantity} units, {status}")
     return "\n".join(lines)
 
-def ask_gemini(user_message, session):
+def ask_groq(user_message, session):
+    client = Groq(api_key=GROQ_API_KEY)
     stock_info = get_stock_context()
     booking_data = {k: v for k, v in session.items() if k not in ["step", "history"]}
 
-    prompt = f"""You are StorefrontBot, a friendly WhatsApp assistant for a business.
+    system_prompt = f"""You are StorefrontBot, a friendly WhatsApp assistant for a business.
 Help customers with bookings, stock checks, and support.
 
 CURRENT STOCK:
@@ -49,7 +48,8 @@ CURRENT STOCK:
 
 BOOKING IN PROGRESS: {json.dumps(booking_data) if booking_data else "None"}
 
-Respond with JSON only, no other text:
+You must respond with a JSON object only — no other text, no markdown, no backticks.
+Format:
 {{
   "reply": "your WhatsApp message to the customer",
   "action": "none" | "start_booking" | "save_booking" | "check_stock" | "support",
@@ -62,27 +62,34 @@ Respond with JSON only, no other text:
 }}
 
 RULES:
-- Be warm and friendly, use emojis naturally
-- Extract booking details (name/date/time/service) from natural language
+- Be warm, friendly, use emojis naturally
+- Extract booking details from natural language
 - Only use save_booking when ALL four fields are confirmed
 - If booking info is incomplete, ask for only the missing piece
-- Keep replies short — this is WhatsApp
-- If they say hi/hello, show a welcome menu with your services
+- Keep replies short — this is WhatsApp not email
+- If they say hi/hello, introduce yourself and show menu options"""
 
-Customer message: {user_message}
+    history = session.get("history", [])
+    messages = [{"role": "system", "content": system_prompt}]
+    messages += history[-8:]
+    messages.append({"role": "user", "content": user_message})
 
-Conversation so far: {json.dumps(session.get("history", [])[-6:])}"""
+    response = client.chat.completions.create(
+        model="llama3-8b-8192",
+        messages=messages,
+        temperature=0.7,
+        max_tokens=500,
+    )
 
-    model = genai.GenerativeModel("gemini-2.0-flash")
-    response = model.generate_content(prompt)
-    raw = response.text.strip()
+    raw = response.choices[0].message.content.strip()
+    print(f"Groq raw response: {raw}")
 
     # Clean markdown if present
     if "```" in raw:
         raw = raw.split("```")[1]
         if raw.startswith("json"):
             raw = raw[4:]
-    
+
     return json.loads(raw.strip())
 
 @csrf_exempt
@@ -102,7 +109,7 @@ def webhook(request):
         session = sessions.get(from_number, {"step": "menu"})
 
         try:
-            result = ask_gemini(text, session)
+            result = ask_groq(text, session)
             reply = result.get("reply", "Sorry, something went wrong. Try again!")
             action = result.get("action", "none")
             booking_data = result.get("booking_data", {})
@@ -137,12 +144,12 @@ def webhook(request):
             # Update history
             history = session.get("history", [])
             history.append({"role": "user", "content": text})
-            history.append({"role": "bot", "content": reply})
-            sessions[from_number]["history"] = history[-10:]
+            history.append({"role": "assistant", "content": reply})
+            sessions[from_number]["history"] = history[-8:]
 
         except Exception as e:
-            print(f"Gemini error: {e}")
-            reply = "Sorry, I'm having trouble right now. Please try again!"
+            print(f"Groq error: {e}")
+            reply = "Sorry, I'm having a moment! Please try again 😅"
 
         send_message(from_number, reply)
         return JsonResponse({"status": "ok"}, status=200)
