@@ -1,6 +1,5 @@
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
-from twilio.rest import Client
 from bookings.models import Booking
 from inventory.models import Product
 from groq import Groq
@@ -11,9 +10,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
-TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
-TWILIO_WHATSAPP_NUMBER = os.getenv("TWILIO_WHATSAPP_NUMBER")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 sessions = {}
