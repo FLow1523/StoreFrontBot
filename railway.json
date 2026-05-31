@@ -4,7 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "python manage.py migrate --noinput && python manage.py createsuperuser --noinput || true && gunicorn core.wsgi --workers 1 --timeout 120",
+    "startCommand": "python manage.py migrate --noinput && gunicorn core.wsgi --workers 1 --timeout 120",
     "restartPolicyType": "ON_FAILURE"
   }
 }
