@@ -19,12 +19,26 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 sessions = {}
 
 def send_message(to, message):
-    client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-    client.messages.create(
-        from_=TWILIO_WHATSAPP_NUMBER,
-        body=message,
-        to=to
-    )
+    import requests
+    phone_number_id = os.getenv("META_PHONE_NUMBER_ID")
+    access_token = os.getenv("META_ACCESS_TOKEN")
+    
+    # Clean the number - remove whatsapp: prefix if present
+    to_clean = to.replace("whatsapp:", "").replace("+", "")
+    
+    url = f"https://graph.facebook.com/v18.0/{phone_number_id}/messages"
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": to_clean,
+        "type": "text",
+        "text": {"body": message}
+    }
+    response = requests.post(url, headers=headers, json=payload)
+    print(f"Meta send response: {response.status_code} {response.text}")
 
 def get_stock_context():
     products = Product.objects.all()
@@ -120,63 +134,86 @@ RULES:
 
 @csrf_exempt
 def webhook(request):
+    if request.method == "GET":
+        mode = request.GET.get("hub.mode")
+        token = request.GET.get("hub.verify_token")
+        challenge = request.GET.get("hub.challenge")
+        if mode == "subscribe" and token == os.getenv("VERIFY_TOKEN", "storefront_verify_123"):
+            return HttpResponse(challenge, status=200)
+        return HttpResponse("Forbidden", status=403)
+
     if request.method == "POST":
-        if request.POST.get("MessageStatus"):
-            return HttpResponse("OK", status=200)
-
-        from_number = request.POST.get("From", "")
-        text = request.POST.get("Body", "").strip()
-
-        if not from_number or not text:
-            return HttpResponse("OK", status=200)
-
-        print(f"FROM: {from_number}, TEXT: {text}")
-
-        session = sessions.get(from_number, {"step": "menu"})
-
+        data = json.loads(request.body)
+        print(f"Meta incoming: {data}")
+        
         try:
-            result = ask_groq(text, session)
-            reply = result.get("reply", "Sorry, something went wrong. Try again!")
-            action = result.get("action", "none")
-            booking_data = result.get("booking_data", {})
+            entry = data["entry"][0]
+            changes = entry["changes"][0]
+            value = changes["value"]
+            messages = value.get("messages", [])
+            
+            if not messages:
+                return JsonResponse({"status": "ok"}, status=200)
+            
+            msg = messages[0]
+            from_number = msg["from"]
+            
+            if msg.get("type") != "text":
+                return JsonResponse({"status": "ok"}, status=200)
+                
+            text = msg["text"]["body"].strip()
+            
+            print(f"FROM: {from_number}, TEXT: {text}")
+            
+            session = sessions.get(from_number, {"step": "menu"})
+            
+            try:
+                result = ask_groq(text, session)
+                reply = result.get("reply", "Sorry, something went wrong. Try again!")
+                action = result.get("action", "none")
+                booking_data = result.get("booking_data", {})
 
-            if action == "save_booking" and all([
-                booking_data.get("name"),
-                booking_data.get("date"),
-                booking_data.get("time"),
-                booking_data.get("service"),
-            ]):
-                Booking.objects.create(
-                    name=booking_data["name"],
-                    phone_number=from_number,
-                    date=booking_data["date"],
-                    time=booking_data["time"],
-                    service=booking_data["service"],
-                )
-                session["history"] = session.get("history", [])
-                sessions[from_number] = {"step": "menu", "history": session["history"]}
-                print(f"Booking saved for {booking_data['name']}")
+                if action == "save_booking" and all([
+                    booking_data.get("name"),
+                    booking_data.get("date"),
+                    booking_data.get("time"),
+                    booking_data.get("service"),
+                ]):
+                    Booking.objects.create(
+                        name=booking_data["name"],
+                        phone_number=from_number,
+                        date=booking_data["date"],
+                        time=booking_data["time"],
+                        service=booking_data["service"],
+                    )
+                    session["history"] = session.get("history", [])
+                    sessions[from_number] = {"step": "menu", "history": session["history"]}
+                    print(f"Booking saved for {booking_data['name']}")
 
-            elif action == "start_booking":
-                session["step"] = "booking"
-                for k, v in booking_data.items():
-                    if v:
-                        session[k] = v
-                sessions[from_number] = session
+                elif action == "start_booking":
+                    session["step"] = "booking"
+                    for k, v in booking_data.items():
+                        if v:
+                            session[k] = v
+                    sessions[from_number] = session
 
-            else:
-                sessions[from_number] = session
+                else:
+                    sessions[from_number] = session
 
-            history = session.get("history", [])
-            history.append({"role": "user", "content": text})
-            history.append({"role": "assistant", "content": reply})
-            sessions[from_number]["history"] = history[-8:]
+                history = session.get("history", [])
+                history.append({"role": "user", "content": text})
+                history.append({"role": "assistant", "content": reply})
+                sessions[from_number]["history"] = history[-8:]
 
+            except Exception as e:
+                print(f"Groq error: {e}")
+                reply = "Sorry, I am unable to process your request right now. Please try again."
+
+            send_message(from_number, reply)
+            
         except Exception as e:
-            print(f"Groq error: {e}")
-            reply = "Sorry, I am unable to process your request right now. Please try again."
-
-        send_message(from_number, reply)
+            print(f"Webhook error: {e}")
+            
         return JsonResponse({"status": "ok"}, status=200)
 
     return HttpResponse("OK", status=200)
