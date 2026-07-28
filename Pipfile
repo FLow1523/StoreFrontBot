@@ -13,6 +13,7 @@ groq = "*"
 requests = "*"
 apscheduler = "*"
 django-jazzmin = "*"
+python-dotenv = "*"
 
 [dev-packages]
 
