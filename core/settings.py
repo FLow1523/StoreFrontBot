@@ -10,25 +10,79 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
 from pathlib import Path
+
+import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-zgm0bt@cjugszx(4jk!h-iqw95-qtj53f2tj_%%rcvk_+g&hub'
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = ['*']
+# Load a local .env file if one exists (ignored in production where real
+# environment variables are provided by the host).
+load_dotenv(BASE_DIR / ".env")
 
 
+def env_bool(name, default=False):
+    return os.getenv(name, str(default)).strip().lower() in ("1", "true", "yes", "on")
+
+
+def env_list(name, default=""):
+    return [item.strip() for item in os.getenv(name, default).split(",") if item.strip()]
+
+
+# ---------------------------------------------------------------------------
+# Core security settings
+# ---------------------------------------------------------------------------
+
+# DEBUG is OFF unless explicitly enabled. For local development, add
+# DJANGO_DEBUG=True to your local .env file.
+DEBUG = env_bool("DJANGO_DEBUG", False)
+
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
+if not SECRET_KEY:
+    if DEBUG:
+        # Local development only. Never used when DEBUG is off.
+        SECRET_KEY = "django-insecure-local-development-only-key"
+    else:
+        raise ImproperlyConfigured(
+            "The DJANGO_SECRET_KEY environment variable is required when DEBUG is off."
+        )
+
+# Render sets RENDER_EXTERNAL_HOSTNAME automatically for web services.
+# For a custom domain, add it to DJANGO_ALLOWED_HOSTS and add its https://
+# origin to DJANGO_CSRF_TRUSTED_ORIGINS (both are comma-separated lists).
+RENDER_EXTERNAL_HOSTNAME = os.getenv("RENDER_EXTERNAL_HOSTNAME")
+
+ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
+CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
+
+if RENDER_EXTERNAL_HOSTNAME:
+    if RENDER_EXTERNAL_HOSTNAME not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+    render_origin = f"https://{RENDER_EXTERNAL_HOSTNAME}"
+    if render_origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(render_origin)
+
+if not DEBUG:
+    # Render's proxy terminates TLS and forwards the original scheme.
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = env_bool("DJANGO_SSL_REDIRECT", True)
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    # Start with a short HSTS period. Raise it (for example to 31536000)
+    # once you have confirmed HTTPS works everywhere.
+    SECURE_HSTS_SECONDS = int(os.getenv("DJANGO_HSTS_SECONDS", "3600"))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+    SECURE_HSTS_PRELOAD = False
+
+
+# ---------------------------------------------------------------------------
 # Application definition
+# ---------------------------------------------------------------------------
+
 INSTALLED_APPS = [
     'jazzmin',
     'django.contrib.admin',
@@ -37,7 +91,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'chatbot',      
+    'chatbot',
     'bookings',
     'inventory',
 ]
@@ -73,8 +127,10 @@ TEMPLATES = [
 WSGI_APPLICATION = 'core.wsgi.application'
 
 
+# ---------------------------------------------------------------------------
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
+# ---------------------------------------------------------------------------
 
 DATABASES = {
     'default': {
@@ -83,9 +139,15 @@ DATABASES = {
     }
 }
 
+DATABASE_URL = os.getenv('DATABASE_URL')
+if DATABASE_URL:
+    DATABASES['default'] = dj_database_url.config(default=DATABASE_URL, conn_max_age=600)
 
+
+# ---------------------------------------------------------------------------
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
+# ---------------------------------------------------------------------------
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -103,8 +165,10 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
+# ---------------------------------------------------------------------------
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
+# ---------------------------------------------------------------------------
 
 LANGUAGE_CODE = 'en-us'
 
@@ -115,26 +179,54 @@ USE_I18N = True
 USE_TZ = True
 
 
+# ---------------------------------------------------------------------------
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
+# ---------------------------------------------------------------------------
 
 STATIC_URL = 'static/'
-
-import os
-import dj_database_url
-
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_DIRS = [BASE_DIR / 'static']
+
+# Left unchanged for now. This setting was removed in Django 5.1 and is
+# replaced by STORAGES; it is corrected in the deployment configuration step.
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-DATABASE_URL = os.getenv('DATABASE_URL')
-if DATABASE_URL:
-    DATABASES['default'] = dj_database_url.config(default=DATABASE_URL, conn_max_age=600)
 
-CSRF_TRUSTED_ORIGINS = [
-    'https://web-production-eac2c.up.railway.app',
-]
+# ---------------------------------------------------------------------------
+# Logging
+# Logs go to the console (captured by Render). Application code must not
+# log phone numbers, message text or tokens.
+# ---------------------------------------------------------------------------
 
-STATICFILES_DIRS = [BASE_DIR / 'static']
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "standard": {
+            "format": "%(asctime)s %(levelname)s %(name)s: %(message)s",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "standard",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": os.getenv("DJANGO_LOG_LEVEL", "INFO"),
+    },
+    "loggers": {
+        "httpx": {"level": "WARNING"},
+        "urllib3": {"level": "WARNING"},
+    },
+}
+
+
+# ---------------------------------------------------------------------------
+# Admin theme
+# ---------------------------------------------------------------------------
 
 JAZZMIN_SETTINGS = {
     "site_title": "StorefrontBot",
