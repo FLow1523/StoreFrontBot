@@ -24,6 +24,7 @@ from .models import ProcessedMessage
 logger = logging.getLogger(__name__)
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
 sessions = {}
 
@@ -166,10 +167,18 @@ def send_message(to, message):
         url, headers=headers, json=payload, timeout=META_TIMEOUT_SECONDS
     )
     if not response.ok:
+        try:
+            error = response.json().get("error", {})
+        except ValueError:
+            error = {}
         logger.warning(
-            "Meta send failed for %s with status %s",
+            "Meta send failed for %s with status %s: code=%s subcode=%s type=%s message=%s",
             mask_phone(to_clean),
             response.status_code,
+            error.get("code"),
+            error.get("error_subcode"),
+            error.get("type"),
+            error.get("message"),
         )
         response.raise_for_status()
     logger.info("Meta send succeeded for %s", mask_phone(to_clean))
@@ -236,14 +245,19 @@ RULES:
     messages += history[-8:]
     messages.append({"role": "user", "content": user_message})
 
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=messages,
-        temperature=0.7,
-        max_tokens=500,
-    )
+    request_kwargs = {
+        "model": GROQ_MODEL,
+        "messages": messages,
+        "temperature": 0.7,
+        "max_tokens": 1500,
+    }
+    if GROQ_MODEL.startswith("openai/gpt-oss"):
+        # Keep the model's internal reasoning short so replies stay fast.
+        request_kwargs["extra_body"] = {"reasoning_effort": "low"}
 
-    raw = response.choices[0].message.content.strip()
+    response = client.chat.completions.create(**request_kwargs)
+
+    raw = (response.choices[0].message.content or "").strip()
     logger.debug("Groq response received (%d characters)", len(raw))
 
     if "```" in raw:
@@ -257,7 +271,7 @@ RULES:
         parsed = json.loads(raw)
         parsed["reply"] = fix_linebreaks(parsed["reply"])
         return parsed
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, KeyError, TypeError):
         reply_match = re.search(r'"reply"\s*:\s*"(.*?)"(?=\s*,\s*"action")', raw, re.DOTALL)
         if reply_match:
             reply_text = fix_linebreaks(reply_match.group(1))
