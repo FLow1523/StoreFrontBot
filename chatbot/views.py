@@ -375,9 +375,9 @@ def purge_old_records():
 def webhook(request):
     if request.method == "GET":
         mode = request.GET.get("hub.mode")
-        token = request.GET.get("hub.verify_token")
+        token = (request.GET.get("hub.verify_token") or "").strip()
         challenge = request.GET.get("hub.challenge") or ""
-        expected = os.getenv("VERIFY_TOKEN")
+        expected = (os.getenv("VERIFY_TOKEN") or "").strip()
 
         if (
             mode == "subscribe"
@@ -386,6 +386,16 @@ def webhook(request):
             and hmac.compare_digest(token.encode("utf-8"), expected.encode("utf-8"))
         ):
             return HttpResponse(challenge, status=200, content_type="text/plain")
+
+        logger.warning(
+            "Webhook verification failed: mode=%s token_received=%s "
+            "token_configured=%s received_length=%d configured_length=%d",
+            mode,
+            bool(token),
+            bool(expected),
+            len(token),
+            len(expected),
+        )
         return HttpResponse("Forbidden", status=403)
 
     if request.method == "POST":
