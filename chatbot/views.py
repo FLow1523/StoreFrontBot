@@ -6,22 +6,28 @@ from groq import Groq
 import os
 import json
 import re
+import requests
 from dotenv import load_dotenv
 
 load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+# The old model (llama-3.3-70b-versatile) returned 404 model_not_found.
+# Override this in Render with the GROQ_MODEL environment variable if needed.
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
 sessions = {}
 
+MAX_REPLY_LENGTH = 4000  # WhatsApp text messages are limited to 4096 characters
+
+
 def send_message(to, message):
-    import requests
     phone_number_id = os.getenv("META_PHONE_NUMBER_ID")
     access_token = os.getenv("META_ACCESS_TOKEN")
-    
+
     # Clean the number - remove whatsapp: prefix if present
     to_clean = to.replace("whatsapp:", "").replace("+", "")
-    
+
     url = f"https://graph.facebook.com/v18.0/{phone_number_id}/messages"
     headers = {
         "Authorization": f"Bearer {access_token}",
@@ -31,10 +37,15 @@ def send_message(to, message):
         "messaging_product": "whatsapp",
         "to": to_clean,
         "type": "text",
-        "text": {"body": message}
+        "text": {"body": message[:MAX_REPLY_LENGTH]}
     }
-    response = requests.post(url, headers=headers, json=payload)
-    print(f"Meta send response: {response.status_code} {response.text}")
+    response = requests.post(url, headers=headers, json=payload, timeout=15)
+    if response.ok:
+        print(f"Meta send succeeded: {response.status_code}")
+    else:
+        # Common codes: 190 = access token expired, 131030 = recipient not on the allowed list
+        print(f"Meta send FAILED: {response.status_code} {response.text}")
+
 
 def get_stock_context():
     products = Product.objects.all()
@@ -46,13 +57,15 @@ def get_stock_context():
         lines.append(f"- {p.name}: N${p.price}, {p.quantity} units, {status}")
     return "\n".join(lines)
 
+
 def fix_linebreaks(text):
     text = text.replace("[BR]", "\n")
     text = text.replace("\\n", "\n")
     return text
 
+
 def ask_groq(user_message, session):
-    client = Groq(api_key=GROQ_API_KEY)
+    client = Groq(api_key=GROQ_API_KEY, timeout=20, max_retries=1)
     stock_info = get_stock_context()
     booking_data = {k: v for k, v in session.items() if k not in ["step", "history"]}
 
@@ -92,14 +105,20 @@ RULES:
     messages += history[-8:]
     messages.append({"role": "user", "content": user_message})
 
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=messages,
-        temperature=0.7,
-        max_tokens=500,
-    )
+    request_kwargs = {
+        "model": GROQ_MODEL,
+        "messages": messages,
+        "temperature": 0.7,
+        "max_tokens": 1500,
+    }
+    if GROQ_MODEL.startswith("openai/gpt-oss"):
+        # gpt-oss models reason before answering. Keep that short so replies stay
+        # fast and the reasoning does not use up the token limit.
+        request_kwargs["extra_body"] = {"reasoning_effort": "low"}
 
-    raw = response.choices[0].message.content.strip()
+    response = client.chat.completions.create(**request_kwargs)
+
+    raw = (response.choices[0].message.content or "").strip()
     print(f"Groq raw: {raw}")
 
     if "```" in raw:
@@ -113,7 +132,7 @@ RULES:
         parsed = json.loads(raw)
         parsed["reply"] = fix_linebreaks(parsed["reply"])
         return parsed
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, KeyError, TypeError):
         reply_match = re.search(r'"reply"\s*:\s*"(.*?)"(?=\s*,\s*"action")', raw, re.DOTALL)
         if reply_match:
             reply_text = fix_linebreaks(reply_match.group(1))
@@ -128,6 +147,7 @@ RULES:
             "booking_data": {"name": None, "date": None, "time": None, "service": None}
         }
 
+
 @csrf_exempt
 def webhook(request):
     if request.method == "GET":
@@ -139,33 +159,38 @@ def webhook(request):
         return HttpResponse("Forbidden", status=403)
 
     if request.method == "POST":
-        data = json.loads(request.body)
+        try:
+            data = json.loads(request.body)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return JsonResponse({"status": "invalid payload"}, status=400)
         print(f"Meta incoming: {data}")
-        
+
         try:
             entry = data["entry"][0]
             changes = entry["changes"][0]
             value = changes["value"]
             messages = value.get("messages", [])
-            
+
             if not messages:
                 return JsonResponse({"status": "ok"}, status=200)
-            
+
             msg = messages[0]
             from_number = msg["from"]
-            
+
             if msg.get("type") != "text":
                 return JsonResponse({"status": "ok"}, status=200)
-                
+
             text = msg["text"]["body"].strip()
-            
+
             print(f"FROM: {from_number}, TEXT: {text}")
-            
+
             session = sessions.get(from_number, {"step": "menu"})
-            
+
             try:
                 result = ask_groq(text, session)
-                reply = result.get("reply", "Sorry, something went wrong. Try again!")
+                reply = result.get("reply")
+                if not isinstance(reply, str) or not reply.strip():
+                    reply = "Sorry, something went wrong. Try again!"
                 action = result.get("action", "none")
                 booking_data = result.get("booking_data", {})
 
@@ -206,10 +231,10 @@ def webhook(request):
                 reply = "Sorry, I am unable to process your request right now. Please try again."
 
             send_message(from_number, reply)
-            
+
         except Exception as e:
             print(f"Webhook error: {e}")
-            
+
         return JsonResponse({"status": "ok"}, status=200)
 
     return HttpResponse("OK", status=200)
