@@ -90,6 +90,20 @@ SUPPORT_REPLY = (
     "Please tell me what you need help with. "
     f"Our business hours are {BUSINESS_HOURS}, in {BUSINESS_LOCATION}."
 )
+CANCEL_INTENT = re.compile(r"\bcancel\w*\b", re.I)
+CANCEL_EXCLUDE = re.compile(r"\b(polic(?:y|ies)|fees?|charges?|refunds?|penalt(?:y|ies))\b", re.I)
+ACTIVE_STATUSES = ("pending", "confirmed")
+MAX_CANCEL_SHOWN = 10
+YES_WORDS = {"yes", "y", "yeah", "yep", "yup", "confirm", "ok", "okay", "sure", "please"}
+KEEP_WORDS = {"no", "n", "nope", "keep", "0", "back", "exit", "menu"}
+CANCEL_NONE_REPLY = (
+    "I could not find any upcoming bookings for this number. "
+    "If you booked with a different number, please contact us during business hours."
+)
+CANCEL_KEEP_REPLY = "Okay, your booking has not been changed. How else can I help?"
+CANCEL_FAILED_REPLY = (
+    "That booking could not be cancelled. It may already have been cancelled, or its time has passed."
+)
 MENU_MARKER = "1. Make a booking"  # present in every reply that shows the numbered menu
 MAX_STOCK_LINES = 30
 FALLBACK_REPLY = (
@@ -240,7 +254,7 @@ def build_booking_confirmation(booking):
         f"Location: {BUSINESS_LOCATION}",
         f"Hours: {BUSINESS_HOURS}",
         "",
-        "To change or cancel this booking, please contact us during business hours.",
+        'To cancel this booking, send "cancel my booking" at any time. To change the time, cancel it and book a new one.',
         f"Thank you for choosing {BUSINESS_NAME}.",
     ]
     return "\n".join(lines)
@@ -354,9 +368,7 @@ def fix_linebreaks(text):
 def ask_groq(user_message, session):
     client = Groq(api_key=GROQ_API_KEY, timeout=GROQ_TIMEOUT_SECONDS, max_retries=1)
     stock_info = get_stock_context()
-    booking_data = {
-        k: v for k, v in session.items() if k not in ["step", "history", "slot_ids"]
-    }
+    booking_data = {k: session[k] for k in ("name", "service") if k in session}
 
     system_prompt = f"""You are StorefrontBot, a professional WhatsApp assistant for a business.
 Help customers with bookings, stock checks, and support.
@@ -385,6 +397,7 @@ RULES:
 - If the person says "menu", always show the numbered list.
 - If the person replies with 1, 2 or 3 right after the numbered list, 1 means a booking, 2 means a stock check and 3 means support.
 - Do not repeat the welcome message or the numbered list unless the person greets you, asks for the menu, or sends something unrelated.
+- If someone wants to change or reschedule a booking, tell them to send "cancel my booking" first and then book a new time. Customers cancel their own bookings that way; never say you have cancelled a booking yourself.
 - When someone wants to book or says "1", reply with: "Our services:[BR][BR]Consultation - N$500[BR]A 1-hour session with our team.[BR][BR]Follow-up - N$250[BR]A 30-minute check-in on previous work.[BR][BR]Other - Price on request[BR]Tell us what you need and we will get back to you.[BR][BR]Which service would you like to book?"
 - After they choose a service, ask for their name. Do not ask for a date or time, and never suggest or invent times. The system shows the available times itself.
 - As soon as you have both the service and the name, set action to "show_slots" and put the name and service in booking_data. The system replaces the reply for that turn, so keep it to one short sentence. Never say a booking is confirmed; only the system confirms bookings.
@@ -480,6 +493,126 @@ def parse_model_output(raw):
     return None
 
 
+def phone_variants(number):
+    """Bookings made earlier may be stored with or without the leading plus."""
+    digits = str(number or "").replace("whatsapp:", "").strip().lstrip("+")
+    return {digits, f"+{digits}"}
+
+
+def describe_booking(booking):
+    return f"{booking.service} - {booking.date}, {booking.time}"
+
+
+def get_cancellable_bookings(from_number):
+    """This customer's own upcoming bookings, soonest first."""
+    return list(
+        Booking.objects.filter(
+            phone_number__in=phone_variants(from_number),
+            status__in=ACTIVE_STATUSES,
+            slot__isnull=False,
+            slot__start__gt=timezone.now(),
+        )
+        .select_related("slot")
+        .order_by("slot__start")[:MAX_CANCEL_SHOWN]
+    )
+
+
+def cancel_booking_for_customer(from_number, booking_id):
+    """
+    Cancel one booking and free its slot, in one transaction. The conditional
+    update only matches a booking that belongs to this phone number, is still
+    active and has not started, so a customer can never cancel someone else's
+    booking. Returns the Booking, or None if it could not be cancelled.
+    """
+    with transaction.atomic():
+        changed = Booking.objects.filter(
+            pk=booking_id,
+            phone_number__in=phone_variants(from_number),
+            status__in=ACTIVE_STATUSES,
+            slot__start__gt=timezone.now(),
+        ).update(status="cancelled")
+        if not changed:
+            return None
+        booking = Booking.objects.get(pk=booking_id)
+        if booking.slot_id:
+            TimeSlot.objects.filter(pk=booking.slot_id).update(is_booked=False)
+        return booking
+
+
+def start_cancellation(from_number, session):
+    """Find the customer's bookings and ask which one (or confirm the only one)."""
+    bookings = get_cancellable_bookings(from_number)
+    if not bookings:
+        reset_booking_state(session)
+        return CANCEL_NONE_REPLY
+    if len(bookings) == 1:
+        session["step"] = "cancel_confirm"
+        session["cancel_id"] = bookings[0].id
+        session.pop("cancel_ids", None)
+        return (
+            "You are about to cancel:\n\n"
+            f"{describe_booking(bookings[0])}\n\n"
+            "Reply YES to cancel this booking, or NO to keep it."
+        )
+    session["step"] = "cancel_choose"
+    session["cancel_ids"] = [booking.id for booking in bookings]
+    session.pop("cancel_id", None)
+    lines = ["Your upcoming bookings:", ""]
+    for number, booking in enumerate(bookings, start=1):
+        lines.append(f"{number}. {describe_booking(booking)}")
+    lines += ["", "Reply with the number of the booking you want to cancel, or 0 to keep them all."]
+    return "\n".join(lines)
+
+
+def handle_cancellation(from_number, session, text):
+    """Handle a message while the customer is cancelling a booking. No model involved."""
+    choice = text.strip().lower().strip(".!")
+
+    if session.get("step") == "cancel_choose":
+        if choice in KEEP_WORDS:
+            reset_booking_state(session)
+            return CANCEL_KEEP_REPLY
+        ids = session.get("cancel_ids") or []
+        if re.fullmatch(r"\d{1,2}", choice) and 1 <= int(choice) <= len(ids):
+            booking = Booking.objects.filter(
+                pk=ids[int(choice) - 1],
+                phone_number__in=phone_variants(from_number),
+                status__in=ACTIVE_STATUSES,
+            ).first()
+            if booking is not None:
+                session["step"] = "cancel_confirm"
+                session["cancel_id"] = booking.id
+                return (
+                    "You are about to cancel:\n\n"
+                    f"{describe_booking(booking)}\n\n"
+                    "Reply YES to cancel this booking, or NO to keep it."
+                )
+            prefix = "That booking can no longer be cancelled."
+        else:
+            prefix = "Please reply with the number of a booking from the list."
+        refreshed = start_cancellation(from_number, session)
+        if session.get("step") == "cancel_choose":
+            return f"{prefix}\n\n{refreshed}"
+        return refreshed
+
+    # cancel_confirm
+    if choice in YES_WORDS:
+        booking = cancel_booking_for_customer(from_number, session.get("cancel_id"))
+        reset_booking_state(session)
+        if booking is None:
+            return CANCEL_FAILED_REPLY
+        logger.info("Booking cancelled by customer %s", mask_phone(from_number))
+        return (
+            "Your booking has been cancelled.\n\n"
+            f"{describe_booking(booking)}\n\n"
+            "You can make a new booking at any time. Just tell me when you are ready."
+        )
+    if choice in KEEP_WORDS:
+        reset_booking_state(session)
+        return CANCEL_KEEP_REPLY
+    return "Please reply YES to cancel this booking, or NO to keep it."
+
+
 def build_stock_reply():
     """Stock list built straight from the database, so it is always accurate."""
     products = list(Product.objects.all().order_by("name")[: MAX_STOCK_LINES + 1])
@@ -507,7 +640,7 @@ def remember(from_number, session, text, reply):
 
 
 def reset_booking_state(session):
-    for key in ("name", "service", "slot_ids"):
+    for key in ("name", "service", "slot_ids", "cancel_ids", "cancel_id"):
         session.pop(key, None)
     session["step"] = "menu"
 
@@ -573,6 +706,11 @@ def build_reply(from_number, text):
             remember(from_number, session, text, reply)
             return reply
 
+        if session.get("step") in ("cancel_choose", "cancel_confirm"):
+            reply = handle_cancellation(from_number, session, text)
+            remember(from_number, session, text, reply)
+            return reply
+
         history = session.get("history", [])
         last_reply = history[-1]["content"] if history else None
 
@@ -585,6 +723,11 @@ def build_reply(from_number, text):
                 reply = build_stock_reply()
             else:
                 reply = SUPPORT_REPLY
+            remember(from_number, session, text, reply)
+            return reply
+
+        if CANCEL_INTENT.search(text) and not CANCEL_EXCLUDE.search(text):
+            reply = start_cancellation(from_number, session)
             remember(from_number, session, text, reply)
             return reply
 
