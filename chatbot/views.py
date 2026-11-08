@@ -9,13 +9,15 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 
-import requests
 from django.conf import settings
 from django.db import IntegrityError, close_old_connections
 from django.http import JsonResponse, HttpResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from groq import Groq
+from twilio.base.exceptions import TwilioRestException
+from twilio.request_validator import RequestValidator
+from twilio.rest import Client as TwilioClient
 
 from bookings.models import Booking
 from inventory.models import Product
@@ -31,10 +33,10 @@ GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 sessions = {}
 
 # Network and processing limits
-META_TIMEOUT_SECONDS = 15
 GROQ_TIMEOUT_SECONDS = 20
 MAX_BACKGROUND_WORKERS = 4
-MAX_REPLY_LENGTH = 4000
+# Twilio's limit for a single WhatsApp message body is 1600 characters.
+MAX_REPLY_LENGTH = 1600
 
 # Per-sender rate limit (enforced through the database so it holds across restarts)
 RATE_LIMIT_MESSAGES = 10
@@ -60,7 +62,7 @@ PROCESSING_ERROR_REPLY = (
     "Sorry, I am unable to process your request right now. Please try again."
 )
 
-# Messages are processed in the background so the webhook can answer Meta
+# Messages are processed in the background so the webhook can answer Twilio
 # immediately. A lock per sender keeps one customer's messages in order.
 executor = ThreadPoolExecutor(
     max_workers=MAX_BACKGROUND_WORKERS, thread_name_prefix="chatbot"
@@ -124,68 +126,92 @@ def validate_booking(booking_data):
     return {"name": name, "date": date, "time": time, "service": service}
 
 
+# ---------------------------------------------------------------------------
+# Twilio: signature check and sending
+# ---------------------------------------------------------------------------
+
+def get_webhook_url(request):
+    """
+    The exact public URL Twilio called. Twilio signs this URL, so it must match
+    what is configured in the Twilio console character for character.
+    Set TWILIO_WEBHOOK_URL on Render to be safe.
+    """
+    configured = os.getenv("TWILIO_WEBHOOK_URL")
+    if configured:
+        return configured.strip()
+    url = request.build_absolute_uri()
+    # Behind Render's proxy Django can see http even though Twilio called https.
+    if request.headers.get("X-Forwarded-Proto") == "https" and url.startswith("http://"):
+        url = "https://" + url[len("http://"):]
+    return url
+
+
 def verify_signature(request):
-    """Verify that the request was signed by Meta using the app secret."""
-    app_secret = os.getenv("META_APP_SECRET")
-    if not app_secret:
-        logger.error("META_APP_SECRET is not set; rejecting webhook request")
+    """Verify that the request was signed by Twilio using the auth token."""
+    auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+    if not auth_token:
+        logger.error("TWILIO_AUTH_TOKEN is not set; rejecting webhook request")
         return False
 
-    header = request.headers.get("X-Hub-Signature-256", "")
-    if not header.startswith("sha256="):
+    signature = request.headers.get("X-Twilio-Signature", "")
+    if not signature:
         return False
 
-    expected = hmac.new(
-        app_secret.encode("utf-8"), request.body, hashlib.sha256
-    ).hexdigest()
-    return hmac.compare_digest(header[len("sha256="):], expected)
+    validator = RequestValidator(auth_token)
+    return validator.validate(get_webhook_url(request), request.POST.dict(), signature)
+
+
+_twilio_client = None
+
+
+def get_twilio_client():
+    global _twilio_client
+    if _twilio_client is None:
+        account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+        auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+        if not account_sid or not auth_token:
+            raise RuntimeError("TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN must be set")
+        _twilio_client = TwilioClient(account_sid, auth_token)
+    return _twilio_client
 
 
 def send_message(to, message):
     """
-    Send a WhatsApp text message. Raises requests.RequestException if the
-    message could not be delivered, so callers can react to failures.
+    Send a WhatsApp text message through Twilio. Raises if the message could
+    not be delivered, so callers can react to failures.
     """
-    phone_number_id = os.getenv("META_PHONE_NUMBER_ID")
-    access_token = os.getenv("META_ACCESS_TOKEN")
-    if not phone_number_id or not access_token:
-        raise RuntimeError("META_PHONE_NUMBER_ID and META_ACCESS_TOKEN must be set")
+    from_whatsapp = os.getenv("TWILIO_WHATSAPP_NUMBER")
+    if not from_whatsapp:
+        raise RuntimeError("TWILIO_WHATSAPP_NUMBER must be set")
+    if not from_whatsapp.startswith("whatsapp:"):
+        from_whatsapp = f"whatsapp:{from_whatsapp}"
 
-    # Clean the number - remove whatsapp: prefix if present
-    to_clean = to.replace("whatsapp:", "").replace("+", "")
+    # Normalise to "+<digits>" and add the whatsapp: prefix Twilio expects.
+    to_clean = to.replace("whatsapp:", "").strip()
+    if not to_clean.startswith("+"):
+        to_clean = f"+{to_clean}"
 
-    url = f"https://graph.facebook.com/v18.0/{phone_number_id}/messages"
-    headers = {
-        "Authorization": f"Bearer {access_token}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": to_clean,
-        "type": "text",
-        "text": {"body": message[:MAX_REPLY_LENGTH]}
-    }
-    response = requests.post(
-        url, headers=headers, json=payload, timeout=META_TIMEOUT_SECONDS
-    )
-    if not response.ok:
-        try:
-            error = response.json().get("error", {})
-        except ValueError:
-            error = {}
-        # Common codes: 190 = access token expired or invalid,
-        # 131030 = recipient is not on the allowed list (test numbers only).
-        logger.warning(
-            "Meta send failed for %s with status %s: code=%s subcode=%s type=%s message=%s",
-            mask_phone(to_clean),
-            response.status_code,
-            error.get("code"),
-            error.get("error_subcode"),
-            error.get("type"),
-            error.get("message"),
+    try:
+        result = get_twilio_client().messages.create(
+            from_=from_whatsapp,
+            to=f"whatsapp:{to_clean}",
+            body=message[:MAX_REPLY_LENGTH],
         )
-        response.raise_for_status()
-    logger.info("Meta send succeeded for %s", mask_phone(to_clean))
+    except TwilioRestException as exc:
+        # Common codes: 63015 = recipient has not joined the sandbox,
+        # 63016 = outside the 24-hour window (needs a template),
+        # 20003 = bad credentials.
+        logger.warning(
+            "Twilio send failed for %s: status=%s code=%s message=%s",
+            mask_phone(to_clean),
+            exc.status,
+            exc.code,
+            exc.msg,
+        )
+        raise
+    logger.info(
+        "Twilio send accepted for %s (status=%s)", mask_phone(to_clean), result.status
+    )
 
 
 def get_stock_context():
@@ -390,123 +416,63 @@ def purge_old_records():
         logger.info("Purged %d old processed-message records", deleted)
 
 
-def describe_payload(data):
-    """Log a safe summary of a webhook payload (no message text, no phone numbers)."""
-    for entry in data.get("entry", []):
-        for change in entry.get("changes", []):
-            value = change.get("value", {}) or {}
-            messages = value.get("messages", []) or []
-            statuses = value.get("statuses", []) or []
-            logger.info(
-                "Webhook event: field=%s messages=%d statuses=%d",
-                change.get("field"),
-                len(messages),
-                len(statuses),
-            )
-            for msg in messages:
-                sender = str(msg.get("from") or "")
-                logger.info(
-                    "Webhook message: type=%s has_id=%s has_from=%s from_is_phone=%s keys=%s",
-                    msg.get("type"),
-                    bool(msg.get("id")),
-                    bool(sender),
-                    sender.isdigit(),
-                    sorted(msg.keys()),
-                )
-            for status in statuses:
-                errors = [e for e in (status.get("errors") or []) if isinstance(e, dict)]
-                logger.info(
-                    "Webhook status: status=%s error_codes=%s error_titles=%s",
-                    status.get("status"),
-                    [e.get("code") for e in errors],
-                    [e.get("title") for e in errors],
-                )
+def empty_twiml():
+    """An empty TwiML response: tells Twilio 'received', send nothing back inline."""
+    return HttpResponse(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response></Response>",
+        status=200,
+        content_type="text/xml",
+    )
 
 
 @csrf_exempt
 def webhook(request):
-    if request.method == "GET":
-        mode = request.GET.get("hub.mode")
-        token = (request.GET.get("hub.verify_token") or "").strip()
-        challenge = request.GET.get("hub.challenge") or ""
-        expected = (os.getenv("VERIFY_TOKEN") or "").strip()
-
-        if (
-            mode == "subscribe"
-            and token
-            and expected
-            and hmac.compare_digest(token.encode("utf-8"), expected.encode("utf-8"))
-        ):
-            return HttpResponse(challenge, status=200, content_type="text/plain")
-
-        logger.warning(
-            "Webhook verification failed: mode=%s token_received=%s "
-            "token_configured=%s received_length=%d configured_length=%d",
-            mode,
-            bool(token),
-            bool(expected),
-            len(token),
-            len(expected),
-        )
-        return HttpResponse("Forbidden", status=403)
-
     if request.method == "POST":
         if not verify_signature(request):
             logger.warning("Rejected webhook request with a missing or invalid signature")
             return HttpResponse("Forbidden", status=403)
 
-        try:
-            data = json.loads(request.body)
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            logger.warning("Rejected webhook request with an invalid JSON body")
-            return JsonResponse({"status": "invalid payload"}, status=400)
+        # Twilio sends form-encoded fields, not JSON:
+        #   MessageSid, From ("whatsapp:+264..."), Body, NumMedia, ProfileName ...
+        message_id = request.POST.get("MessageSid")
+        raw_from = request.POST.get("From") or ""
+        body = request.POST.get("Body")
 
-        if not isinstance(data, dict):
-            return JsonResponse({"status": "invalid payload"}, status=400)
+        logger.info(
+            "Webhook message: has_sid=%s has_from=%s has_body=%s num_media=%s",
+            bool(message_id),
+            bool(raw_from),
+            bool(body),
+            request.POST.get("NumMedia"),
+        )
 
-        try:
-            describe_payload(data)
-        except Exception:
-            logger.exception("Could not describe webhook payload")
-
-        # Always answer Meta with 200 once the request is authentic, and do the
+        # Always answer Twilio with 200 once the request is authentic, and do the
         # slow work (database, language model, reply) in the background.
         try:
-            for entry in data.get("entry", []):
-                for change in entry.get("changes", []):
-                    value = change.get("value", {})
-                    for msg in value.get("messages", []):
-                        if msg.get("type") != "text":
-                            continue
+            from_number = raw_from.replace("whatsapp:", "").strip()
+            if not (message_id and from_number and isinstance(body, str)):
+                logger.warning("Skipped a message with missing id, sender or body")
+                return empty_twiml()
 
-                        message_id = msg.get("id")
-                        from_number = msg.get("from")
-                        body = (msg.get("text") or {}).get("body")
-                        if not (message_id and from_number and isinstance(body, str)):
-                            logger.warning("Skipped a text message with missing id, sender or body")
-                            continue
+            text = body.strip()[:MAX_INCOMING_TEXT_LENGTH]
+            if not text:
+                return empty_twiml()
 
-                        text = body.strip()[:MAX_INCOMING_TEXT_LENGTH]
-                        if not text:
-                            continue
-
-                        outcome = register_message(message_id, hash_sender(from_number))
-                        if outcome == "duplicate":
-                            logger.info("Ignored a duplicate message delivery")
-                            continue
-                        if outcome == "rate_limited":
-                            logger.warning(
-                                "Rate limit reached for %s; message ignored",
-                                mask_phone(from_number),
-                            )
-                            continue
-
-                        logger.info(
-                            "Accepted message from %s (%d characters)",
-                            mask_phone(from_number),
-                            len(text),
-                        )
-                        executor.submit(process_message, from_number, text)
+            outcome = register_message(message_id, hash_sender(from_number))
+            if outcome == "duplicate":
+                logger.info("Ignored a duplicate message delivery")
+            elif outcome == "rate_limited":
+                logger.warning(
+                    "Rate limit reached for %s; message ignored",
+                    mask_phone(from_number),
+                )
+            else:
+                logger.info(
+                    "Accepted message from %s (%d characters)",
+                    mask_phone(from_number),
+                    len(text),
+                )
+                executor.submit(process_message, from_number, text)
 
             # Occasional housekeeping; moves to the scheduler in the reminders step.
             if random.random() < 0.01:
@@ -515,6 +481,7 @@ def webhook(request):
         except Exception:
             logger.exception("Webhook processing error")
 
-        return JsonResponse({"status": "ok"}, status=200)
+        return empty_twiml()
 
+    # Twilio does not use a GET verification handshake (Meta did).
     return HttpResponse("OK", status=200)
