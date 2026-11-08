@@ -79,6 +79,31 @@ BOOKING_REJECTED_REPLY = (
 NO_SLOTS_REPLY = (
     "There are no available times at the moment. Please check again soon."
 )
+SERVICES_REPLY = (
+    "Our services:\n\n"
+    "Consultation - N$500\nA 1-hour session with our team.\n\n"
+    "Follow-up - N$250\nA 30-minute check-in on previous work.\n\n"
+    "Other - Price on request\nTell us what you need and we will get back to you.\n\n"
+    "Which service would you like to book?"
+)
+SUPPORT_REPLY = (
+    "Please tell me what you need help with. "
+    f"Our business hours are {BUSINESS_HOURS}, in {BUSINESS_LOCATION}."
+)
+MENU_MARKER = "1. Make a booking"  # present in every reply that shows the numbered menu
+MAX_STOCK_LINES = 30
+FALLBACK_REPLY = (
+    "Sorry, I did not quite catch that. "
+    "Could you tell me what you need, for example a booking or a stock check?"
+)
+# A clear request to book, with no service named yet, is answered in code.
+BOOKING_INTENT = re.compile(
+    r"\b(book|booking|bookings|appointment|appointments|reserve|reservation|schedule)\b", re.I
+)
+BOOKING_INTENT_EXCLUDE = re.compile(
+    r"\b(cancel\w*|change\w*|reschedul\w*|move|edit|delete|status|consultation|follow[\s-]?up)\b", re.I
+)
+
 BOOKING_CANCELLED_REPLY = (
     "Your booking request has been cancelled.\n\n"
     "How can I help you?\n\n"
@@ -358,6 +383,8 @@ RULES:
 - Use [BR] for every line break in your reply.
 - When someone greets you, greet them back warmly and naturally, then ask how you can help. Vary your wording each time. Do NOT show the numbered list on a greeting. Greetings include, in any capitalisation or spelling: hi, hii, hiii, hello, hey, heyy, hey there, hi there, hello there, hallo, hullo, yo, sup, howzit, how zit, heita, hola, good morning, morning, gm, good afternoon, afternoon, good evening, evening, good day, good night, how are you, how are you doing, how is it going, how's it going, how do you do, how r u, how u doing, what's up, wassup, whatsup, greetings, goeie more, goeiemore, goeie middag, goeie naand, goeie dag, hoe gaan dit, hoe gaan dit met jou, and nice to meet you. Match the time of day if they mention it, for example "Good morning, welcome to StorefrontBot. How can I help you today?" If they ask how you are, answer in one short sentence and then ask how you can help.
 - If the person says "menu", always show the numbered list.
+- If the person replies with 1, 2 or 3 right after the numbered list, 1 means a booking, 2 means a stock check and 3 means support.
+- Do not repeat the welcome message or the numbered list unless the person greets you, asks for the menu, or sends something unrelated.
 - When someone wants to book or says "1", reply with: "Our services:[BR][BR]Consultation - N$500[BR]A 1-hour session with our team.[BR][BR]Follow-up - N$250[BR]A 30-minute check-in on previous work.[BR][BR]Other - Price on request[BR]Tell us what you need and we will get back to you.[BR][BR]Which service would you like to book?"
 - After they choose a service, ask for their name. Do not ask for a date or time, and never suggest or invent times. The system shows the available times itself.
 - As soon as you have both the service and the name, set action to "show_slots" and put the name and service in booking_data. The system replaces the reply for that turn, so keep it to one short sentence. Never say a booking is confirmed; only the system confirms bookings.
@@ -386,36 +413,88 @@ RULES:
         # fast and the reasoning does not use up the token limit.
         request_kwargs["extra_body"] = {"reasoning_effort": "low"}
 
-    response = client.chat.completions.create(**request_kwargs)
+    for attempt in (1, 2):
+        response = client.chat.completions.create(**request_kwargs)
+        raw = (response.choices[0].message.content or "").strip()
+        logger.debug("Groq response received (%d characters)", len(raw))
+        parsed = parse_model_output(raw)
+        if parsed is not None:
+            return parsed
+        logger.warning(
+            "Unreadable model output (attempt %d): length=%d empty=%s has_brace=%s",
+            attempt,
+            len(raw),
+            not raw,
+            "{" in raw,
+        )
 
-    raw = (response.choices[0].message.content or "").strip()
-    logger.debug("Groq response received (%d characters)", len(raw))
+    return {
+        "reply": FALLBACK_REPLY,
+        "action": "none",
+        "booking_data": {"name": None, "service": None},
+    }
 
+
+def parse_model_output(raw):
+    """
+    Turn the model's text into {"reply", "action", "booking_data"}.
+    Returns None if nothing usable can be read, so the caller can retry.
+    """
+    raw = (raw or "").strip()
     if "```" in raw:
-        raw = raw.split("```")[1]
+        parts = raw.split("```")
+        raw = parts[1] if len(parts) > 1 else raw
         if raw.startswith("json"):
             raw = raw[4:]
+        raw = raw.strip()
 
-    raw = raw.strip()
+    candidates = [raw]
+    first, last = raw.find("{"), raw.rfind("}")
+    if 0 <= first < last:
+        candidates.append(raw[first:last + 1])
 
-    try:
-        parsed = json.loads(raw)
-        parsed["reply"] = fix_linebreaks(parsed["reply"])
-        return parsed
-    except (json.JSONDecodeError, KeyError, TypeError):
-        reply_match = re.search(r'"reply"\s*:\s*"(.*?)"(?=\s*,\s*"action")', raw, re.DOTALL)
-        if reply_match:
-            reply_text = fix_linebreaks(reply_match.group(1))
-            return {
-                "reply": reply_text,
-                "action": "none",
-                "booking_data": {"name": None, "service": None}
-            }
+    for candidate in candidates:
+        try:
+            parsed = json.loads(candidate, strict=False)
+        except (ValueError, TypeError):
+            continue
+        if isinstance(parsed, dict) and isinstance(parsed.get("reply"), str) and parsed["reply"].strip():
+            parsed["reply"] = fix_linebreaks(parsed["reply"])
+            return parsed
+
+    match = re.search(r'"reply"\s*:\s*"(.*?)"(?=\s*,\s*"action")', raw, re.DOTALL)
+    if match and match.group(1).strip():
         return {
-            "reply": "Welcome to StorefrontBot.\n\nHow can I help you today?\n\n1. Make a booking\n2. Check stock availability\n3. Speak to support\n\nReply with a number or just tell me what you need.",
+            "reply": fix_linebreaks(match.group(1)),
             "action": "none",
-            "booking_data": {"name": None, "service": None}
+            "booking_data": {"name": None, "service": None},
         }
+
+    # The model answered in plain text instead of JSON: send it as the reply.
+    if raw and "{" not in raw:
+        return {
+            "reply": fix_linebreaks(raw[:MAX_REPLY_LENGTH]),
+            "action": "none",
+            "booking_data": {"name": None, "service": None},
+        }
+    return None
+
+
+def build_stock_reply():
+    """Stock list built straight from the database, so it is always accurate."""
+    products = list(Product.objects.all().order_by("name")[: MAX_STOCK_LINES + 1])
+    if not products:
+        return "We have no products listed at the moment."
+    lines = ["Current stock:", ""]
+    for product in products[:MAX_STOCK_LINES]:
+        if product.quantity > 0:
+            lines.append(f"{product.name} - N${product.price} - {product.quantity} in stock")
+        else:
+            lines.append(f"{product.name} - N${product.price} - out of stock")
+    if len(products) > MAX_STOCK_LINES:
+        lines.append("...and more. Ask me about a specific product.")
+    lines += ["", "Would you like to make a booking or ask about something else?"]
+    return "\n".join(lines)
 
 
 def remember(from_number, session, text, reply):
@@ -491,6 +570,30 @@ def build_reply(from_number, text):
     try:
         if session.get("step") == "choose_slot":
             reply = handle_slot_choice(from_number, session, text)
+            remember(from_number, session, text, reply)
+            return reply
+
+        history = session.get("history", [])
+        last_reply = history[-1]["content"] if history else None
+
+        # "1", "2" or "3" straight after the numbered menu is answered in code.
+        menu_choice = text.strip().rstrip(".").strip()
+        if last_reply and MENU_MARKER in last_reply and menu_choice in ("1", "2", "3"):
+            if menu_choice == "1":
+                reply = SERVICES_REPLY
+            elif menu_choice == "2":
+                reply = build_stock_reply()
+            else:
+                reply = SUPPORT_REPLY
+            remember(from_number, session, text, reply)
+            return reply
+
+        if (
+            BOOKING_INTENT.search(text)
+            and not BOOKING_INTENT_EXCLUDE.search(text)
+            and last_reply != SERVICES_REPLY
+        ):
+            reply = SERVICES_REPLY
             remember(from_number, session, text, reply)
             return reply
 
