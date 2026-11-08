@@ -27,7 +27,7 @@
 
   <!-- TOOLBAR -->
   <div class="toolbar">
-    <input class="search-box" type="text" placeholder="Search bookings by name" oninput="filterBookings(this.value)">
+    <input class="search-box" type="text" placeholder="Search bookings by name or number" oninput="filterBookings(this.value)">
     <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
     <button class="filter-btn" onclick="setFilter('pending',this)">Pending</button>
     <button class="filter-btn" onclick="setFilter('confirmed',this)">Confirmed</button>
@@ -46,6 +46,7 @@
           <thead>
             <tr>
               <th>Name</th>
+              <th>Phone</th>
               <th>Date</th>
               <th>Time</th>
               <th>Service</th>
@@ -55,8 +56,9 @@
           </thead>
           <tbody id="bookings-table">
             {% for booking in bookings %}
-            <tr data-id="{{ booking.id }}" data-status="{{ booking.status }}" data-name="{{ booking.name|lower }}">
+            <tr data-id="{{ booking.id }}" data-status="{{ booking.status }}" data-name="{{ booking.name|lower }} {{ booking.phone_digits }}">
               <td><strong>{{ booking.name }}</strong></td>
+              <td>{% if booking.phone_digits %}<a class="phone-link" href="https://wa.me/{{ booking.phone_digits }}" target="_blank" rel="noopener noreferrer" title="Open a WhatsApp chat">{{ booking.display_phone }}</a>{% else %}<span class="muted">-</span>{% endif %}</td>
               <td>{{ booking.date }}</td>
               <td>{{ booking.time }}</td>
               <td>{{ booking.service }}</td>

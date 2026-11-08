@@ -1,3 +1,5 @@
+import re
+
 from django.db import models
 
 
@@ -32,6 +34,17 @@ class Booking(models.Model):
         related_name="bookings",
     )
     created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def phone_digits(self):
+        """Digits only, e.g. 264811111111. Used for search and for chat links."""
+        return re.sub(r"\D", "", self.phone_number or "")
+
+    @property
+    def display_phone(self):
+        """International format with a leading plus, even for older records saved without one."""
+        digits = self.phone_digits
+        return f"+{digits}" if digits else (self.phone_number or "")
 
     def __str__(self):
         return f"{self.name} - {self.date} at {self.time}"
