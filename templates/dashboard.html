@@ -1,296 +1,25 @@
-{% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>StorefrontBot — Dashboard</title>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --bg:      #0c0f17;
-      --surface: #111520;
-      --surface2:#161b2e;
-      --border:  #1e2540;
-      --accent:  #3b9eff;
-      --accent2: #00d4aa;
-      --text:    #e6eaf5;
-      --muted:   #5a637d;
-      --subtle:  #2a3352;
-      --red:     #ef4444;
-      --yellow:  #f59e0b;
-      --silk: cubic-bezier(0.25,0.46,0.45,0.94);
-    }
-    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
-    html{scroll-behavior:smooth;}
-    body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;display:flex;flex-direction:column;}
+{% extends "dashboard_base.html" %}
 
-    /* ── NAV ── */
-    nav{
-      background:var(--surface);
-      border-bottom:1px solid var(--border);
-      padding:0 32px;
-      height:64px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      position:sticky;top:0;z-index:100;
-    }
-    .logo{
-      font-family:'Outfit',sans-serif;font-weight:800;font-size:1.2rem;
-      color:var(--text);text-decoration:none;display:flex;align-items:center;gap:8px;
-    }
-    .logo-mark{
-      width:26px;height:26px;background:var(--accent);border-radius:6px;
-      display:flex;align-items:center;justify-content:center;
-      font-size:0.8rem;color:#000;font-weight:900;
-    }
-    .nav-right{display:flex;align-items:center;gap:16px;}
-    .live-pill{
-      display:flex;align-items:center;gap:6px;
-      font-size:0.75rem;color:var(--muted);
-      background:var(--surface2);border:1px solid var(--border);
-      padding:5px 12px;border-radius:20px;
-    }
-    .live-dot{width:7px;height:7px;background:var(--accent2);border-radius:50%;animation:pulse 2s infinite;}
-    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
-    .nav-link{
-      font-size:0.82rem;color:var(--muted);text-decoration:none;
-      padding:6px 14px;border-radius:8px;border:1px solid var(--border);
-      transition:all 0.2s var(--silk);
-    }
-    .nav-link:hover{color:var(--text);border-color:var(--accent);}
-    .nav-link.active{background:var(--accent);color:#000;border-color:var(--accent);font-weight:600;}
+{% block title %}StorefrontBot — Bookings{% endblock %}
+{% block page_title %}Bookings{% endblock %}
+{% block page_subtitle %}Manage your bookings and available times{% endblock %}
 
-    /* ── MAIN ── */
-    main{flex:1;padding:32px;}
-    .page-header{
-      display:flex;align-items:center;justify-content:space-between;
-      margin-bottom:28px;
-    }
-    .page-title{
-      font-family:'Outfit',sans-serif;font-size:1.5rem;font-weight:800;
-      letter-spacing:-0.5px;
-    }
-    .page-subtitle{font-size:0.82rem;color:var(--muted);margin-top:3px;}
-    .header-actions{display:flex;gap:10px;}
-    .btn{
-      padding:9px 18px;border-radius:8px;font-family:'DM Sans',sans-serif;
-      font-size:0.82rem;font-weight:600;cursor:pointer;border:none;
-      text-decoration:none;display:inline-flex;align-items:center;gap:6px;
-      transition:all 0.2s var(--silk);
-    }
-    .btn-outline{background:transparent;border:1px solid var(--border);color:var(--muted);}
-    .btn-outline:hover{border-color:var(--accent);color:var(--text);}
-    .btn-solid{background:var(--accent);color:#000;}
-    .btn-solid:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(59,158,255,0.3);}
-
-    /* ── STATS ── */
-    .stats{
-      display:grid;grid-template-columns:repeat(3,1fr);
-      gap:16px;margin-bottom:24px;
-    }
-    .stat-card{
-      background:var(--surface);border:1px solid var(--border);
-      border-radius:16px;padding:24px;position:relative;overflow:hidden;
-      transition:border-color 0.2s var(--silk),transform 0.2s var(--silk);
-      cursor:default;
-    }
-    .stat-card:hover{border-color:rgba(59,158,255,0.3);transform:translateY(-2px);}
-    .stat-card::before{
-      content:'';position:absolute;top:0;left:0;right:0;height:2px;
-      background:var(--accent);
-    }
-    .stat-card:nth-child(2)::before{background:var(--accent2);}
-    .stat-card:nth-child(3)::before{background:var(--yellow);}
-    .stat-icon{font-size:1.3rem;margin-bottom:12px;}
-    .stat-num{
-      font-family:'Outfit',sans-serif;font-size:2.4rem;font-weight:800;
-      line-height:1;color:var(--text);
-    }
-    .stat-label{
-      font-size:0.72rem;color:var(--muted);margin-top:6px;
-      text-transform:uppercase;letter-spacing:0.1em;
-    }
-
-    /* ── TOOLBAR ── */
-    .toolbar{
-      display:flex;align-items:center;gap:10px;margin-bottom:20px;
-      flex-wrap:wrap;
-    }
-    .search-box{
-      flex:1;min-width:200px;background:var(--surface);border:1px solid var(--border);
-      border-radius:10px;padding:10px 16px;color:var(--text);
-      font-family:'DM Sans',sans-serif;font-size:0.875rem;outline:none;
-      transition:border-color 0.2s var(--silk);
-    }
-    .search-box::placeholder{color:var(--muted);}
-    .search-box:focus{border-color:var(--accent);}
-    .filter-btn{
-      padding:9px 16px;border-radius:8px;border:1px solid var(--border);
-      background:var(--surface);color:var(--muted);cursor:pointer;
-      font-size:0.78rem;font-weight:600;font-family:'DM Sans',sans-serif;
-      transition:all 0.2s var(--silk);white-space:nowrap;
-    }
-    .filter-btn:hover{border-color:var(--accent);color:var(--text);}
-    .filter-btn.active{background:var(--accent);color:#000;border-color:var(--accent);}
-
-    /* ── GRID ── */
-    .grid{display:grid;grid-template-columns:1.6fr 1fr;gap:20px;}
-
-    /* ── CARD ── */
-    .card{
-      background:var(--surface);border:1px solid var(--border);
-      border-radius:16px;overflow:hidden;
-    }
-    .card-header{
-      padding:18px 24px;border-bottom:1px solid var(--border);
-      display:flex;align-items:center;justify-content:space-between;
-    }
-    .card-title{
-      font-family:'Outfit',sans-serif;font-size:0.95rem;font-weight:700;
-      display:flex;align-items:center;gap:8px;
-    }
-    .card-badge{
-      font-size:0.65rem;background:var(--surface2);color:var(--muted);
-      padding:3px 10px;border-radius:20px;border:1px solid var(--border);
-    }
-
-    /* ── TABLE ── */
-    .table-wrap{overflow-x:auto;}
-    table{width:100%;border-collapse:collapse;}
-    th{
-      font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;
-      color:var(--muted);padding:12px 24px;text-align:left;
-      border-bottom:1px solid var(--border);white-space:nowrap;
-    }
-    td{
-      padding:14px 24px;font-size:0.85rem;
-      border-bottom:1px solid var(--border);
-      transition:background 0.15s;
-    }
-    tr:last-child td{border-bottom:none;}
-    tr:hover td{background:rgba(255,255,255,0.02);}
-    .empty{padding:48px;text-align:center;color:var(--muted);font-size:0.875rem;}
-
-    /* ── STATUS BADGE ── */
-    .status{
-      display:inline-flex;align-items:center;gap:5px;
-      padding:4px 10px;border-radius:20px;font-size:0.68rem;
-      font-weight:700;text-transform:uppercase;letter-spacing:0.05em;
-    }
-    .status::before{content:'';width:5px;height:5px;border-radius:50%;background:currentColor;}
-    .s-pending{background:rgba(245,158,11,0.12);color:var(--yellow);}
-    .s-confirmed{background:rgba(0,212,170,0.12);color:var(--accent2);}
-    .s-cancelled{background:rgba(239,68,68,0.12);color:var(--red);}
-
-    /* ── ACTION BUTTONS ── */
-    .actions{display:flex;gap:6px;}
-    .act-btn{
-      padding:5px 12px;border-radius:6px;border:none;cursor:pointer;
-      font-size:0.7rem;font-weight:700;font-family:'DM Sans',sans-serif;
-      transition:all 0.15s var(--silk);
-    }
-    .act-confirm{background:rgba(0,212,170,0.12);color:var(--accent2);}
-    .act-confirm:hover{background:var(--accent2);color:#000;}
-    .act-cancel{background:rgba(239,68,68,0.1);color:var(--red);}
-    .act-cancel:hover{background:var(--red);color:#fff;}
-
-    /* ── STOCK ITEMS ── */
-    .stock-item{
-      padding:16px 24px;border-bottom:1px solid var(--border);
-      display:flex;align-items:center;justify-content:space-between;
-      transition:background 0.15s;
-    }
-    .stock-item:last-child{border-bottom:none;}
-    .stock-item:hover{background:rgba(255,255,255,0.02);}
-    .stock-name{font-size:0.875rem;font-weight:500;}
-    .stock-price{font-size:0.75rem;color:var(--muted);margin-top:3px;}
-    .stock-controls{display:flex;align-items:center;gap:8px;}
-    .qty-btn{
-      width:28px;height:28px;border-radius:7px;border:1px solid var(--border);
-      background:var(--surface2);color:var(--text);cursor:pointer;
-      font-size:1rem;display:flex;align-items:center;justify-content:center;
-      transition:all 0.15s var(--silk);font-weight:600;
-    }
-    .qty-btn:hover{border-color:var(--accent);color:var(--accent);}
-    .qty-num{
-      font-family:'Outfit',sans-serif;font-weight:800;font-size:1rem;
-      min-width:28px;text-align:center;
-    }
-    .stock-badge{
-      font-size:0.65rem;font-weight:700;padding:4px 10px;border-radius:20px;
-      text-transform:uppercase;letter-spacing:0.05em;
-    }
-    .in-stock{background:rgba(0,212,170,0.12);color:var(--accent2);}
-    .out-stock{background:rgba(239,68,68,0.12);color:var(--red);}
-
-    /* ── TOAST ── */
-    .toast{
-      position:fixed;bottom:24px;right:24px;
-      background:var(--surface);border:1px solid var(--accent);
-      color:var(--accent);padding:12px 20px;border-radius:10px;
-      font-size:0.875rem;transform:translateY(80px);opacity:0;
-      transition:all 0.3s var(--silk);z-index:999;
-      font-family:'DM Sans',sans-serif;
-    }
-    .toast.show{transform:translateY(0);opacity:1;}
-
-    /* ── RESPONSIVE ── */
-    @media(max-width:900px){
-      .grid{grid-template-columns:1fr;}
-      .stats{grid-template-columns:1fr;}
-      nav{padding:0 16px;}
-      main{padding:20px 16px;}
-    }
-  </style>
-</head>
-<body>
-
-<!-- NAV -->
-<nav>
-  <a href="/" class="logo">
-    <div class="logo-mark">S</div>
-    StorefrontBot
-  </a>
-  <div class="nav-right">
-    <div class="live-pill">
-      <div class="live-dot"></div>
-      Live
-    </div>
-    <a href="/" class="nav-link">← Home</a>
-    <a href="/admin/" class="nav-link">Admin</a>
-    <a href="/dashboard/" class="nav-link active">Dashboard</a>
-  </div>
-</nav>
-
-<!-- MAIN -->
-<main>
-  <div class="page-header">
-    <div>
-      <div class="page-title">Business Dashboard</div>
-      <div class="page-subtitle">Manage your bookings and stock in real time</div>
-    </div>
-    <div class="header-actions">
+{% block header_actions %}
       <a href="/admin/bookings/booking/add/" class="btn btn-outline">+ New Booking</a>
-      <a href="/admin/inventory/product/add/" class="btn btn-solid">+ Add Product</a>
-    </div>
-  </div>
+{% endblock %}
 
+{% block content %}
   <!-- STATS -->
   <div class="stats">
     <div class="stat-card">
-      <div class="stat-icon">📋</div>
       <div class="stat-num">{{ total_bookings }}</div>
       <div class="stat-label">Total Bookings</div>
     </div>
     <div class="stat-card">
-      <div class="stat-icon">⏳</div>
       <div class="stat-num">{{ pending }}</div>
       <div class="stat-label">Pending</div>
     </div>
     <div class="stat-card">
-      <div class="stat-icon">✅</div>
       <div class="stat-num">{{ confirmed }}</div>
       <div class="stat-label">Confirmed</div>
     </div>
@@ -298,20 +27,17 @@
 
   <!-- TOOLBAR -->
   <div class="toolbar">
-    <input class="search-box" type="text" placeholder="🔍  Search bookings by name..." oninput="filterBookings(this.value)">
+    <input class="search-box" type="text" placeholder="Search bookings by name" oninput="filterBookings(this.value)">
     <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
     <button class="filter-btn" onclick="setFilter('pending',this)">Pending</button>
     <button class="filter-btn" onclick="setFilter('confirmed',this)">Confirmed</button>
     <button class="filter-btn" onclick="setFilter('cancelled',this)">Cancelled</button>
   </div>
 
-  <!-- GRID -->
-  <div class="grid">
-
     <!-- BOOKINGS -->
     <div class="card">
       <div class="card-header">
-        <div class="card-title">📋 Bookings</div>
+        <div class="card-title">Bookings</div>
         <span class="card-badge">{{ total_bookings }} total</span>
       </div>
       {% if bookings %}
@@ -341,8 +67,8 @@
               </td>
               <td>
                 <div class="actions">
-                  <button class="act-btn act-confirm" onclick="updateBooking({{ booking.id }},'confirmed')">✓ Confirm</button>
-                  <button class="act-btn act-cancel" onclick="updateBooking({{ booking.id }},'cancelled')">✕ Cancel</button>
+                  <button class="act-btn act-confirm" onclick="updateBooking({{ booking.id }},'confirmed')">Confirm</button>
+                  <button class="act-btn act-cancel" onclick="updateBooking({{ booking.id }},'cancelled')">Cancel</button>
                 </div>
               </td>
             </tr>
@@ -355,73 +81,100 @@
       {% endif %}
     </div>
 
-    <!-- STOCK -->
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">📦 Stock</div>
-        <span class="card-badge">{{ products|length }} products</span>
-      </div>
-      {% if products %}
-        {% for p in products %}
-        <div class="stock-item">
-          <div>
-            <div class="stock-name">{{ p.name }}</div>
-            <div class="stock-price">N${{ p.price }}</div>
-          </div>
-          <div class="stock-controls">
-            <button class="qty-btn" onclick="updateStock({{ p.id }},-1)">−</button>
-            <span class="qty-num" id="qty-{{ p.id }}">{{ p.quantity }}</span>
-            <button class="qty-btn" onclick="updateStock({{ p.id }},1)">+</button>
-            <span class="stock-badge {% if p.quantity > 0 %}in-stock{% else %}out-stock{% endif %}" id="badge-{{ p.id }}">
-              {% if p.quantity > 0 %}In Stock{% else %}Out{% endif %}
-            </span>
-          </div>
-        </div>
-        {% endfor %}
-      {% else %}
-      <div class="empty">No products yet.</div>
-      {% endif %}
+
+  <!-- TIME SLOTS -->
+  <div class="card slots-card">
+    <div class="card-header">
+      <div class="card-title">Available time slots</div>
+      <span class="card-badge">{{ open_slots }} open</span>
     </div>
-
+    <div class="slot-form">
+      <div class="slot-field">
+        <label for="slot-date">Date</label>
+        <input type="date" id="slot-date">
+      </div>
+      <div class="slot-field">
+        <label for="slot-start">First time</label>
+        <input type="time" id="slot-start">
+      </div>
+      <div class="slot-field">
+        <label for="slot-end">Last time (optional)</label>
+        <input type="time" id="slot-end">
+      </div>
+      <div class="slot-field">
+        <label for="slot-interval">Every (minutes)</label>
+        <input type="number" id="slot-interval" value="60" min="5" max="480" step="5">
+      </div>
+      <button class="btn btn-solid" id="slot-add-btn" onclick="addSlots()">+ Add slots</button>
+    </div>
+    <div class="slot-hint">Leave "Last time" empty to add a single slot. Otherwise slots are created from the first time to the last time at the interval you choose. Customers can only book the times listed here.</div>
+    {% if slots %}
+    <div class="slot-list">
+      {% for s in slots %}
+      <div class="slot-row" data-slot-id="{{ s.id }}">
+        <div>
+          <div class="slot-when">{{ s.start|date:"D d M Y, H:i" }}</div>
+          {% if s.is_booked %}
+          <div class="slot-who">{% for b in s.bookings.all %}{% if b.status != "cancelled" %}{{ b.name }} · {{ b.service }}{% endif %}{% endfor %}</div>
+          {% endif %}
+        </div>
+        <div class="slot-actions">
+          {% if s.is_booked %}
+          <span class="status s-booked">Booked</span>
+          {% else %}
+          <span class="status s-open">Open</span>
+          <button class="act-btn act-cancel" onclick="deleteSlot({{ s.id }})">Remove</button>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty">No upcoming time slots. Add some above so customers can book.</div>
+    {% endif %}
   </div>
-</main>
+{% endblock %}
 
-<div class="toast" id="toast"></div>
-
+{% block scripts %}
 <script>
-function showToast(msg){
-  const t=document.getElementById('toast');
-  t.textContent=msg;t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'),2500);
-}
-
 function updateBooking(id,status){
-  fetch(`/dashboard/booking/${id}/update/`,{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({status})
-  }).then(r=>r.json()).then(data=>{
+  postJSON(`/dashboard/booking/${id}/update/`,{status}).then(({ok,data})=>{
+    if(!ok||!data.success){showToast(''+(data.error||'Could not update the booking'));return;}
     const el=document.getElementById(`status-${id}`);
     el.textContent=data.status;
     el.className=`status s-${data.status}`;
     document.querySelector(`tr[data-id="${id}"]`).dataset.status=data.status;
-    showToast(`✅ Booking ${data.status}!`);
+    showToast(`Booking ${data.status}!`);
+    if(data.slot_changed){setTimeout(()=>location.reload(),900);}
   });
 }
 
-function updateStock(id,change){
-  const el=document.getElementById(`qty-${id}`);
-  const newQty=Math.max(0,parseInt(el.textContent)+change);
-  fetch(`/dashboard/stock/${id}/update/`,{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({quantity:newQty})
-  }).then(r=>r.json()).then(data=>{
-    el.textContent=data.quantity;
-    const b=document.getElementById(`badge-${id}`);
-    b.textContent=data.quantity>0?'In Stock':'Out';
-    b.className=`stock-badge ${data.quantity>0?'in-stock':'out-stock'}`;
-    showToast('📦 Stock updated!');
+function addSlots(){
+  const body={
+    date:document.getElementById('slot-date').value,
+    start_time:document.getElementById('slot-start').value,
+    end_time:document.getElementById('slot-end').value,
+    interval_minutes:document.getElementById('slot-interval').value
+  };
+  if(!body.date||!body.start_time){showToast('Pick a date and a first time');return;}
+  const btn=document.getElementById('slot-add-btn');
+  btn.disabled=true;
+  postJSON('/dashboard/slots/add/',body).then(({ok,data})=>{
+    btn.disabled=false;
+    if(!ok||!data.success){showToast(''+(data.error||'Could not add slots'));return;}
+    let msg=`${data.created} slot(s) added`;
+    if(data.existing){msg+=`, ${data.existing} already existed`;}
+    if(data.past){msg+=`, ${data.past} in the past skipped`;}
+    showToast(msg);
+    setTimeout(()=>location.reload(),1200);
+  });
+}
+
+function deleteSlot(id){
+  postJSON(`/dashboard/slots/${id}/delete/`).then(({ok,data})=>{
+    if(!ok||!data.success){showToast(''+(data.error||'Could not remove the slot'));return;}
+    showToast('Slot removed');
+    setTimeout(()=>location.reload(),700);
   });
 }
 
@@ -439,5 +192,4 @@ function setFilter(status,btn){
   });
 }
 </script>
-</body>
-</html>
+{% endblock %}

@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 
 from django.conf import settings
-from django.db import IntegrityError, close_old_connections
+from django.db import IntegrityError, close_old_connections, transaction
 from django.http import JsonResponse, HttpResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
@@ -19,7 +19,7 @@ from twilio.base.exceptions import TwilioRestException
 from twilio.request_validator import RequestValidator
 from twilio.rest import Client as TwilioClient
 
-from bookings.models import Booking
+from bookings.models import Booking, TimeSlot
 from inventory.models import Product
 from .models import ProcessedMessage
 
@@ -54,9 +54,35 @@ MAX_FIELD_LENGTH = 50
 MAX_INCOMING_TEXT_LENGTH = 1000
 CONTROL_CHARACTERS = re.compile(r"[\x00-\x1f\x7f]")
 
+BUSINESS_NAME = "StorefrontBot"
+BUSINESS_LOCATION = "Windhoek, Namibia"
+BUSINESS_HOURS = "Monday to Friday, 8am to 5pm"
+SERVICE_PRICES = {
+    "Consultation": "N$500",
+    "Follow-up": "N$250",
+    "Other": "Price on request",
+}
+
+# Owner-published time slots
+MAX_SLOTS_SHOWN = 10
+# Slots are published by the owner, so booking one confirms it. Set to False
+# if you want every booking to wait for approval on the dashboard.
+AUTO_CONFIRM_BOOKINGS = True
+DATE_FORMAT = "%a %d %b %Y"
+TIME_FORMAT = "%H:%M"
+SLOT_EXIT_WORDS = {"0", "cancel", "back", "exit", "menu"}
+
 BOOKING_REJECTED_REPLY = (
-    "I was unable to complete your booking with the details provided. "
-    "Please confirm your name, preferred date, time and service."
+    "I was unable to continue your booking with the details provided. "
+    "Please confirm your name and the service you would like."
+)
+NO_SLOTS_REPLY = (
+    "There are no available times at the moment. Please check again soon."
+)
+BOOKING_CANCELLED_REPLY = (
+    "Your booking request has been cancelled.\n\n"
+    "How can I help you?\n\n"
+    "1. Make a booking\n2. Check stock availability\n3. Speak to support"
 )
 PROCESSING_ERROR_REPLY = (
     "Sorry, I am unable to process your request right now. Please try again."
@@ -102,20 +128,18 @@ def clean_text(value, max_length):
     return cleaned
 
 
-def validate_booking(booking_data):
+def validate_details(booking_data):
     """
-    Validate booking data produced by the language model.
+    Validate the details the language model collected (name and service).
     Returns a dict of cleaned values, or None if anything is missing or invalid.
+    The date and time come from a time slot the customer picks, not from the model.
     """
     if not isinstance(booking_data, dict):
         return None
 
     name = clean_text(booking_data.get("name"), MAX_NAME_LENGTH)
-    date = clean_text(booking_data.get("date"), MAX_FIELD_LENGTH)
-    time = clean_text(booking_data.get("time"), MAX_FIELD_LENGTH)
     service_raw = clean_text(booking_data.get("service"), MAX_NAME_LENGTH)
-
-    if not all([name, date, time, service_raw]):
+    if not name or not service_raw:
         return None
 
     service_key = re.sub(r"[\s_-]+", "-", service_raw.lower())
@@ -123,7 +147,78 @@ def validate_booking(booking_data):
     if service is None:
         return None
 
-    return {"name": name, "date": date, "time": time, "service": service}
+    return {"name": name, "service": service}
+
+
+def local_dt(value):
+    """Convert a stored datetime to the project time zone for display."""
+    return timezone.localtime(value) if timezone.is_aware(value) else value
+
+
+def format_slot(value):
+    local = local_dt(value)
+    return f"{local.strftime(DATE_FORMAT)}, {local.strftime(TIME_FORMAT)}"
+
+
+def get_open_slots():
+    """The next open slots in the future, soonest first."""
+    return list(
+        TimeSlot.objects.filter(is_booked=False, start__gt=timezone.now()).order_by(
+            "start"
+        )[:MAX_SLOTS_SHOWN]
+    )
+
+
+def create_booking_for_slot(from_number, name, service, slot_id):
+    """
+    Claim a slot and create the booking in one transaction.
+    The conditional update only succeeds if the slot is still free, so two
+    customers can never get the same slot. Returns the Booking, or None if the
+    slot was taken (or has passed) in the meantime.
+    """
+    with transaction.atomic():
+        claimed = TimeSlot.objects.filter(
+            pk=slot_id, is_booked=False, start__gt=timezone.now()
+        ).update(is_booked=True)
+        if not claimed:
+            return None
+        slot = TimeSlot.objects.get(pk=slot_id)
+        local = local_dt(slot.start)
+        return Booking.objects.create(
+            name=name,
+            phone_number=from_number,
+            service=service,
+            slot=slot,
+            date=local.strftime(DATE_FORMAT),
+            time=local.strftime(TIME_FORMAT),
+            status="confirmed" if AUTO_CONFIRM_BOOKINGS else "pending",
+        )
+
+
+def build_booking_confirmation(booking):
+    """
+    Fixed-text confirmation built from the saved booking, so the details are
+    exactly what was saved and never reworded by the language model.
+    """
+    price = SERVICE_PRICES.get(booking.service)
+    if booking.status == "confirmed":
+        headline = "Booking confirmed."
+    else:
+        headline = "Booking received. We will confirm it shortly."
+    lines = [
+        headline,
+        "",
+        f"Name: {booking.name}",
+        f"Service: {booking.service}" + (f" ({price})" if price else ""),
+        f"Date: {booking.date}",
+        f"Time: {booking.time}",
+        f"Location: {BUSINESS_LOCATION}",
+        f"Hours: {BUSINESS_HOURS}",
+        "",
+        "To change or cancel this booking, please contact us during business hours.",
+        f"Thank you for choosing {BUSINESS_NAME}.",
+    ]
+    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
@@ -234,7 +329,9 @@ def fix_linebreaks(text):
 def ask_groq(user_message, session):
     client = Groq(api_key=GROQ_API_KEY, timeout=GROQ_TIMEOUT_SECONDS, max_retries=1)
     stock_info = get_stock_context()
-    booking_data = {k: v for k, v in session.items() if k not in ["step", "history"]}
+    booking_data = {
+        k: v for k, v in session.items() if k not in ["step", "history", "slot_ids"]
+    }
 
     system_prompt = f"""You are StorefrontBot, a professional WhatsApp assistant for a business.
 Help customers with bookings, stock checks, and support.
@@ -251,7 +348,9 @@ You must respond with a JSON object only — no other text, no markdown, no back
 Use [BR] for line breaks inside the reply string. Never use actual newlines inside JSON strings.
 
 Format:
-{{"reply": "your message with [BR] for line breaks", "action": "none", "booking_data": {{"name": null, "date": null, "time": null, "service": null}}}}
+{{"reply": "your message with [BR] for line breaks", "action": "none", "booking_data": {{"name": null, "service": null}}}}
+
+The action is either "none" or "show_slots".
 
 RULES:
 - Be professional, warm and concise. No emojis at all.
@@ -260,10 +359,10 @@ RULES:
 - When someone greets you, greet them back warmly and naturally, then ask how you can help. Vary your wording each time. Do NOT show the numbered list on a greeting. Greetings include, in any capitalisation or spelling: hi, hii, hiii, hello, hey, heyy, hey there, hi there, hello there, hallo, hullo, yo, sup, howzit, how zit, heita, hola, good morning, morning, gm, good afternoon, afternoon, good evening, evening, good day, good night, how are you, how are you doing, how is it going, how's it going, how do you do, how r u, how u doing, what's up, wassup, whatsup, greetings, goeie more, goeiemore, goeie middag, goeie naand, goeie dag, hoe gaan dit, hoe gaan dit met jou, and nice to meet you. Match the time of day if they mention it, for example "Good morning, welcome to StorefrontBot. How can I help you today?" If they ask how you are, answer in one short sentence and then ask how you can help.
 - If the person says "menu", always show the numbered list.
 - When someone wants to book or says "1", reply with: "Our services:[BR][BR]Consultation - N$500[BR]A 1-hour session with our team.[BR][BR]Follow-up - N$250[BR]A 30-minute check-in on previous work.[BR][BR]Other - Price on request[BR]Tell us what you need and we will get back to you.[BR][BR]Which service would you like to book?"
-- After they choose a service, ask for name, date and time one at a time
-- Only use save_booking when ALL four fields are confirmed
+- After they choose a service, ask for their name. Do not ask for a date or time, and never suggest or invent times. The system shows the available times itself.
+- As soon as you have both the service and the name, set action to "show_slots" and put the name and service in booking_data. The system replaces the reply for that turn, so keep it to one short sentence. Never say a booking is confirmed; only the system confirms bookings.
 - For stock questions, list each product with name, price and availability
-- If booking info is incomplete, ask for only the missing piece
+- If booking info is incomplete, ask for only the missing piece (the service or the name)
 - Never make up services or prices not listed above
 - If someone asks where we are located say: Windhoek, Namibia. Monday to Friday, 8am to 5pm.
 - If their message is not about bookings, stock, support, our location or our hours, reply with one short, friendly sentence, then show this list: "I can help with the following:[BR][BR]1. Make a booking[BR]2. Check stock availability[BR]3. Speak to support[BR][BR]Reply with a number or just tell me what you need."
@@ -310,13 +409,79 @@ RULES:
             return {
                 "reply": reply_text,
                 "action": "none",
-                "booking_data": {"name": None, "date": None, "time": None, "service": None}
+                "booking_data": {"name": None, "service": None}
             }
         return {
             "reply": "Welcome to StorefrontBot.\n\nHow can I help you today?\n\n1. Make a booking\n2. Check stock availability\n3. Speak to support\n\nReply with a number or just tell me what you need.",
             "action": "none",
-            "booking_data": {"name": None, "date": None, "time": None, "service": None}
+            "booking_data": {"name": None, "service": None}
         }
+
+
+def remember(from_number, session, text, reply):
+    """Store the exchange in the session history (last 8 messages)."""
+    history = session.get("history", [])
+    history.append({"role": "user", "content": text})
+    history.append({"role": "assistant", "content": reply})
+    session["history"] = history[-8:]
+    sessions[from_number] = session
+
+
+def reset_booking_state(session):
+    for key in ("name", "service", "slot_ids"):
+        session.pop(key, None)
+    session["step"] = "menu"
+
+
+def present_slots(session, header="Available times:"):
+    """
+    Build the numbered list of open slots and move the session to the
+    slot-choosing step. Returns None (and resets) if nothing is open.
+    """
+    slots = get_open_slots()
+    if not slots:
+        reset_booking_state(session)
+        return None
+    session["step"] = "choose_slot"
+    session["slot_ids"] = [slot.id for slot in slots]
+    lines = [header, ""]
+    for number, slot in enumerate(slots, start=1):
+        lines.append(f"{number}. {format_slot(slot.start)}")
+    lines += ["", "Reply with the number of the time you would like, or 0 to cancel."]
+    return "\n".join(lines)
+
+
+def handle_slot_choice(from_number, session, text):
+    """Handle a message while the customer is choosing a time. No model involved."""
+    choice = text.strip().lower()
+
+    if choice in SLOT_EXIT_WORDS:
+        reset_booking_state(session)
+        return BOOKING_CANCELLED_REPLY
+
+    name = session.get("name")
+    service = session.get("service")
+    if not name or not service:
+        reset_booking_state(session)
+        return BOOKING_REJECTED_REPLY
+
+    slot_ids = session.get("slot_ids") or []
+    if re.fullmatch(r"\d{1,2}", choice) and 1 <= int(choice) <= len(slot_ids):
+        booking = create_booking_for_slot(
+            from_number, name, service, slot_ids[int(choice) - 1]
+        )
+        if booking:
+            reset_booking_state(session)
+            logger.info("Booking saved for %s", mask_phone(from_number))
+            return build_booking_confirmation(booking)
+        prefix = "Sorry, that time has just been taken."
+    else:
+        prefix = "Please reply with the number of one of the times below."
+
+    slot_text = present_slots(session)
+    if slot_text is None:
+        return NO_SLOTS_REPLY
+    return f"{prefix}\n\n{slot_text}"
 
 
 def build_reply(from_number, text):
@@ -324,6 +489,11 @@ def build_reply(from_number, text):
     session = sessions.get(from_number, {"step": "menu"})
 
     try:
+        if session.get("step") == "choose_slot":
+            reply = handle_slot_choice(from_number, session, text)
+            remember(from_number, session, text, reply)
+            return reply
+
         result = ask_groq(text, session)
         reply = result.get("reply")
         if not isinstance(reply, str) or not reply.strip():
@@ -331,43 +501,22 @@ def build_reply(from_number, text):
         action = result.get("action", "none")
         booking_data = result.get("booking_data", {})
 
-        if action == "save_booking":
-            validated = validate_booking(booking_data)
-            if validated:
-                Booking.objects.create(
-                    name=validated["name"],
-                    phone_number=from_number,
-                    date=validated["date"],
-                    time=validated["time"],
-                    service=validated["service"],
-                )
-                session["history"] = session.get("history", [])
-                sessions[from_number] = {"step": "menu", "history": session["history"]}
-                logger.info("Booking saved for %s", mask_phone(from_number))
+        # "save_booking" is accepted too, in case the model uses its old habit.
+        if action in ("show_slots", "save_booking"):
+            details = validate_details(booking_data)
+            if details:
+                session["name"] = details["name"]
+                session["service"] = details["service"]
+                header = f"Thank you, {details['name']}. These times are available:"
+                reply = present_slots(session, header) or NO_SLOTS_REPLY
             else:
                 logger.warning(
-                    "Rejected incomplete or invalid booking data from %s",
+                    "Incomplete or invalid booking details from %s",
                     mask_phone(from_number),
                 )
                 reply = BOOKING_REJECTED_REPLY
-                sessions[from_number] = session
 
-        elif action == "start_booking":
-            session["step"] = "booking"
-            if isinstance(booking_data, dict):
-                for key in ("name", "date", "time", "service"):
-                    cleaned = clean_text(booking_data.get(key), MAX_NAME_LENGTH)
-                    if cleaned:
-                        session[key] = cleaned
-            sessions[from_number] = session
-
-        else:
-            sessions[from_number] = session
-
-        history = session.get("history", [])
-        history.append({"role": "user", "content": text})
-        history.append({"role": "assistant", "content": reply})
-        sessions[from_number]["history"] = history[-8:]
+        remember(from_number, session, text, reply)
         return reply
 
     except Exception:

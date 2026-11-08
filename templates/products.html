@@ -1,0 +1,114 @@
+{% extends "dashboard_base.html" %}
+
+{% block title %}StorefrontBot — Products{% endblock %}
+{% block page_title %}Products{% endblock %}
+{% block page_subtitle %}Manage your stock levels in real time{% endblock %}
+
+{% block header_actions %}
+      <a href="/admin/inventory/product/add/" class="btn btn-solid">+ Add Product</a>
+{% endblock %}
+
+{% block content %}
+  <!-- STATS -->
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-num" id="stat-total">{{ total_products }}</div>
+      <div class="stat-label">Total Products</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num" id="stat-in">{{ in_stock }}</div>
+      <div class="stat-label">In Stock</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num" id="stat-out">{{ out_of_stock }}</div>
+      <div class="stat-label">Out of Stock</div>
+    </div>
+  </div>
+
+  <!-- TOOLBAR -->
+  <div class="toolbar">
+    <input class="search-box" type="text" placeholder="Search products by name" oninput="searchProducts(this.value)">
+    <button class="filter-btn active" onclick="setProductFilter('all',this)">All</button>
+    <button class="filter-btn" onclick="setProductFilter('in',this)">In stock</button>
+    <button class="filter-btn" onclick="setProductFilter('out',this)">Out of stock</button>
+  </div>
+
+  <!-- PRODUCTS -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Stock</div>
+      <span class="card-badge">{{ total_products }} products</span>
+    </div>
+    {% if products %}
+      {% for p in products %}
+      <div class="stock-item" data-name="{{ p.name|lower }}" data-stock="{% if p.quantity > 0 %}in{% else %}out{% endif %}">
+        <div>
+          <div class="stock-name">{{ p.name }}</div>
+          <div class="stock-price">N${{ p.price }}</div>
+        </div>
+        <div class="stock-controls">
+          <button class="qty-btn" onclick="updateStock({{ p.id }},-1)">−</button>
+          <span class="qty-num" id="qty-{{ p.id }}">{{ p.quantity }}</span>
+          <button class="qty-btn" onclick="updateStock({{ p.id }},1)">+</button>
+          <span class="stock-badge {% if p.quantity > 0 %}in-stock{% else %}out-stock{% endif %}" id="badge-{{ p.id }}">
+            {% if p.quantity > 0 %}In Stock{% else %}Out{% endif %}
+          </span>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+    <div class="empty">No products yet. Use "+ Add Product" to create your first one.</div>
+    {% endif %}
+  </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let productFilter='all';
+let productQuery='';
+
+function applyProductFilters(){
+  document.querySelectorAll('.stock-item').forEach(el=>{
+    const matchesName=el.dataset.name.includes(productQuery);
+    const matchesStock=productFilter==='all'||el.dataset.stock===productFilter;
+    el.style.display=(matchesName&&matchesStock)?'':'none';
+  });
+}
+
+function searchProducts(q){
+  productQuery=q.trim().toLowerCase();
+  applyProductFilters();
+}
+
+function setProductFilter(filter,btn){
+  productFilter=filter;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  applyProductFilters();
+}
+
+function refreshProductStats(){
+  const total=document.querySelectorAll('.stock-item').length;
+  const inStock=document.querySelectorAll('.stock-item[data-stock="in"]').length;
+  document.getElementById('stat-total').textContent=total;
+  document.getElementById('stat-in').textContent=inStock;
+  document.getElementById('stat-out').textContent=total-inStock;
+}
+
+function updateStock(id,change){
+  const el=document.getElementById(`qty-${id}`);
+  const newQty=Math.max(0,parseInt(el.textContent)+change);
+  postJSON(`/dashboard/stock/${id}/update/`,{quantity:newQty}).then(({ok,data})=>{
+    if(!ok||!data.success){showToast(''+(data.error||'Could not update stock'));return;}
+    el.textContent=data.quantity;
+    const b=document.getElementById(`badge-${id}`);
+    b.textContent=data.quantity>0?'In Stock':'Out';
+    b.className=`stock-badge ${data.quantity>0?'in-stock':'out-stock'}`;
+    el.closest('.stock-item').dataset.stock=data.quantity>0?'in':'out';
+    refreshProductStats();
+    applyProductFilters();
+    showToast('Stock updated!');
+  });
+}
+</script>
+{% endblock %}
