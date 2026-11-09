@@ -17,6 +17,20 @@ class TimeSlot(models.Model):
         return f"{self.start:%a %d %b %Y %H:%M} ({state})"
 
 
+class ChatSession(models.Model):
+    """
+    Where a customer is in a conversation (choosing a time, cancelling) and
+    their last few messages. Kept in the database so a server restart or a
+    second worker never loses a half-finished booking.
+    """
+    phone_digits = models.CharField(max_length=20, unique=True)
+    data = models.JSONField(default=dict)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"+{self.phone_digits}"
+
+
 class Booking(models.Model):
     name = models.CharField(max_length=100)
     phone_number = models.CharField(max_length=50)
@@ -33,6 +47,10 @@ class Booking(models.Model):
         on_delete=models.SET_NULL,
         related_name="bookings",
     )
+    # Set once the reminder has gone out, so it is never sent twice.
+    reminder_sent_at = models.DateTimeField(null=True, blank=True)
+    # Failed sends so far; the reminder is given up on after a few.
+    reminder_attempts = models.PositiveSmallIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
     @property
