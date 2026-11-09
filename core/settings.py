@@ -55,6 +55,10 @@ if not SECRET_KEY:
 # For a custom domain, add it to DJANGO_ALLOWED_HOSTS and add its https://
 # origin to DJANGO_CSRF_TRUSTED_ORIGINS (both are comma-separated lists).
 RENDER_EXTERNAL_HOSTNAME = os.getenv("RENDER_EXTERNAL_HOSTNAME")
+SITE_URL = os.getenv(
+    "SITE_URL",
+    f"https://{RENDER_EXTERNAL_HOSTNAME}" if RENDER_EXTERNAL_HOSTNAME else "https://storefrontbot.onrender.com",
+).rstrip("/")
 
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
 CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
@@ -184,13 +188,18 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 # ---------------------------------------------------------------------------
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 
-# Left unchanged for now. This setting was removed in Django 5.1 and is
-# replaced by STORAGES; it is corrected in the deployment configuration step.
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
 
 # ---------------------------------------------------------------------------
