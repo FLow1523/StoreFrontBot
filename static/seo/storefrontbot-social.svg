@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">StorefrontBot</title>
+  <desc id="desc">WhatsApp booking and stock enquiry assistant for businesses.</desc>
+  <rect width="1200" height="630" fill="#0f1b2d"/>
+  <circle cx="1030" cy="110" r="260" fill="#1d4ed8" opacity=".22"/>
+  <circle cx="160" cy="610" r="300" fill="#1d4ed8" opacity=".16"/>
+  <rect x="92" y="106" width="76" height="76" rx="18" fill="#1d4ed8"/>
+  <path d="M135 119 108 157h20l-3 27 29-42h-20z" fill="#fff"/>
+  <text x="196" y="160" fill="#fff" font-family="Arial,Helvetica,sans-serif" font-size="48" font-weight="700">StorefrontBot</text>
+  <text x="92" y="300" fill="#fff" font-family="Arial,Helvetica,sans-serif" font-size="58" font-weight="700">Bookings and stock</text>
+  <text x="92" y="372" fill="#fff" font-family="Arial,Helvetica,sans-serif" font-size="58" font-weight="700">enquiries on WhatsApp.</text>
+  <text x="96" y="452" fill="#cbd5e1" font-family="Arial,Helvetica,sans-serif" font-size="27">Customers message. Your business stays organized.</text>
+  <rect x="92" y="508" width="330" height="58" rx="12" fill="#1d4ed8"/>
+  <text x="124" y="546" fill="#fff" font-family="Arial,Helvetica,sans-serif" font-size="24" font-weight="700">Simple business messaging</text>
+</svg>
