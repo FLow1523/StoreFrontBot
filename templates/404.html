@@ -1,0 +1,29 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Page not found | StorefrontBot</title>
+  <meta name="robots" content="noindex, follow">
+  <link rel="icon" type="image/svg+xml" href="{% static 'images/favicon.svg' %}">
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:#f3f5f9;color:#0f172a;font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+    main{max-width:560px;padding:42px;background:#fff;border:1px solid #e2e8f0;border-radius:18px;text-align:center}
+    .code{color:#1d4ed8;font-weight:700;letter-spacing:.12em}
+    h1{font-size:clamp(2rem,6vw,3rem);line-height:1.1;margin:12px 0}
+    p{color:#64748b}
+    a{display:inline-block;margin-top:14px;padding:12px 20px;border-radius:9px;background:#1d4ed8;color:#fff;text-decoration:none;font-weight:650}
+    a:focus-visible{outline:3px solid #0f172a;outline-offset:3px}
+  </style>
+</head>
+<body>
+  <main>
+    <p class="code">ERROR 404</p>
+    <h1>We couldn't find that page.</h1>
+    <p>The address may be incorrect, or the page may have moved. You can return to the StorefrontBot homepage.</p>
+    <a href="/">Back to homepage</a>
+  </main>
+</body>
+</html>

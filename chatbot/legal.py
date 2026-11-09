@@ -1,5 +1,6 @@
 import os
 
+from django.conf import settings
 from django.http import HttpResponse
 from django.utils.html import escape
 
@@ -17,12 +18,21 @@ p.meta { color: #666; margin-top: 0; }
 """
 
 
-def render_page(title, body_html):
+def render_page(request, title, description, body_html):
+    canonical_url = f"{settings.SITE_URL}{request.path}"
     html = (
         "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">"
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
         f"<title>{escape(title)} - {escape(BUSINESS_NAME)}</title>"
+        f"<meta name=\"description\" content=\"{escape(description)}\">"
+        f"<link rel=\"canonical\" href=\"{escape(canonical_url)}\">"
+        f"<link rel=\"alternate\" hreflang=\"en\" href=\"{escape(canonical_url)}\">"
+        f"<link rel=\"alternate\" hreflang=\"x-default\" href=\"{escape(canonical_url)}\">"
+        f"<link rel=\"icon\" type=\"image/svg+xml\" href=\"{escape(settings.STATIC_URL)}images/favicon.svg\">"
+        f"<meta property=\"og:type\" content=\"website\"><meta property=\"og:title\" content=\"{escape(title)} - {escape(BUSINESS_NAME)}\">"
+        f"<meta property=\"og:description\" content=\"{escape(description)}\"><meta property=\"og:url\" content=\"{escape(canonical_url)}\">"
         f"<style>{PAGE_STYLE}</style></head><body>"
+        f"<nav aria-label=\"Breadcrumb\"><a href=\"/\">Home</a> / {escape(title)}</nav>"
         f"<h1>{escape(title)}</h1>"
         f"<p class=\"meta\">Last updated: {LAST_UPDATED}</p>"
         f"{body_html}"
@@ -84,7 +94,7 @@ connections and verification of messages received from WhatsApp.</p>
 <h2>Contact</h2>
 <p>Questions about this policy: <a href="mailto:{email}">{email}</a>.</p>
 """
-    return render_page("Privacy Policy", body)
+    return render_page(request, "Privacy Policy", "Learn how StorefrontBot handles WhatsApp messages, booking details and personal information.", body)
 
 
 def data_deletion(request):
@@ -108,4 +118,4 @@ records are deleted automatically after about 7 days.</p>
 
 <p>See also our <a href="/chatbot/privacy/">Privacy Policy</a>.</p>
 """
-    return render_page("Data Deletion Instructions", body)
+    return render_page(request, "Data Deletion Instructions", "Find out how to request deletion of personal information held by StorefrontBot.", body)

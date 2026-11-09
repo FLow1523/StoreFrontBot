@@ -4,7 +4,34 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>StorefrontBot — Bookings and stock enquiries on WhatsApp</title>
-  <meta name="description" content="StorefrontBot lets customers book appointments, check stock and cancel bookings on WhatsApp, while you manage everything from one dashboard.">
+  <meta name="description" content="StorefrontBot helps businesses manage WhatsApp appointment bookings, stock enquiries and customer messages from one dashboard.">
+  <link rel="canonical" href="{{ site_url }}/">
+  <link rel="alternate" hreflang="en" href="{{ site_url }}/">
+  <link rel="alternate" hreflang="x-default" href="{{ site_url }}/">
+  <link rel="icon" type="image/svg+xml" href="/static/images/favicon.svg">
+  <meta name="theme-color" content="#0f1b2d">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="StorefrontBot">
+  <meta property="og:title" content="StorefrontBot — WhatsApp bookings and stock enquiries">
+  <meta property="og:description" content="Help customers book appointments and check stock on WhatsApp, while you manage your business from one dashboard.">
+  <meta property="og:url" content="{{ site_url }}/">
+  <meta property="og:image" content="{{ site_url }}/static/seo/storefrontbot-social.svg">
+  <meta property="og:image:alt" content="StorefrontBot — bookings and stock enquiries on WhatsApp">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="StorefrontBot — WhatsApp bookings and stock enquiries">
+  <meta name="twitter:description" content="Help customers book appointments and check stock on WhatsApp.">
+  <meta name="twitter:image" content="{{ site_url }}/static/seo/storefrontbot-social.svg">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "StorefrontBot",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Web",
+    "url": "{{ site_url }}/",
+    "description": "A WhatsApp assistant that helps businesses handle appointment bookings and stock enquiries through a customer messaging experience and an owner dashboard."
+  }
+  </script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root{--navy:#0f1b2d;--accent:#1d4ed8;--soft:#e8effd;--bg:#f3f5f9;--text:#0f172a;--muted:#64748b;--border:#e2e8f0;--wa:#dcf8c6;}
@@ -12,6 +39,8 @@
     html{scroll-behavior:smooth;}
     body{font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;color:var(--text);background:#fff;line-height:1.6;-webkit-font-smoothing:antialiased;}
     a{color:inherit;}
+    a:focus-visible,summary:focus-visible{outline:3px solid var(--accent);outline-offset:3px;border-radius:4px;}
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto;}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;}}
     .wrap{max-width:1120px;margin:0 auto;padding:0 24px;}
     header{position:sticky;top:0;z-index:10;background:rgba(255,255,255,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);}
     .bar{display:flex;align-items:center;justify-content:space-between;height:64px;gap:16px;}
@@ -99,7 +128,7 @@
       </div>
     </div>
     <div>
-      <div class="chat" aria-label="Example WhatsApp conversation">
+      <div class="chat" role="group" aria-label="Illustrative WhatsApp conversation between a customer and StorefrontBot">
         <div class="chat-top">StorefrontBot <span>WhatsApp</span></div>
         <div class="msgs">
           <div class="m in">i would like to book an appointment</div>
