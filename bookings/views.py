@@ -1,5 +1,7 @@
 import json
 import logging
+import os
+import re
 from datetime import datetime, timedelta
 from functools import wraps
 
@@ -114,7 +116,13 @@ def apply_booking_status(booking, status):
 
 
 def landing(request):
-    return render(request, 'landing/index.html')
+    # Contact buttons appear only when these are set (environment variables on Render).
+    number = re.sub(r"\D", "", os.getenv("LANDING_WHATSAPP_NUMBER", ""))
+    email = (os.getenv("CONTACT_EMAIL") or "").strip()
+    return render(request, 'landing/index.html', {
+        'whatsapp_number': number if 8 <= len(number) <= 15 else None,
+        'contact_email': email if re.fullmatch(r"[^@\s<>\"']+@[^@\s<>\"']+\.[^@\s<>\"']+", email) else None,
+    })
 
 
 @staff_member_required
