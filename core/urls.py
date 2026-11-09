@@ -8,6 +8,7 @@ from bookings.views import (
     add_slots,
     delete_slot,
     product_list,
+    metrics_page,
 )
 
 urlpatterns = [
@@ -15,6 +16,7 @@ urlpatterns = [
     path('chatbot/', include('chatbot.urls')),
     path('dashboard/', dashboard, name='dashboard'),
     path('dashboard/products/', product_list, name='dashboard-products'),
+    path('dashboard/metrics/', metrics_page, name='dashboard-metrics'),
     path('dashboard/booking/<int:booking_id>/update/', update_booking),
     path('dashboard/stock/<int:product_id>/update/', update_stock),
     path('dashboard/slots/add/', add_slots),

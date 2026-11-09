@@ -13,6 +13,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST
 
 from inventory.models import Product
+from .metrics import ALLOWED_RANGES, compute_metrics, parse_range
 from .models import Booking, TimeSlot
 
 logger = logging.getLogger(__name__)
@@ -153,6 +154,17 @@ def product_list(request):
         'total_products': total_products,
         'in_stock': in_stock,
         'out_of_stock': total_products - in_stock,
+    })
+
+
+@staff_member_required
+def metrics_page(request):
+    days = parse_range(request.GET.get('days'))
+    return render(request, 'metrics.html', {
+        'active_page': 'metrics',
+        'days': days,
+        'ranges': ALLOWED_RANGES,
+        'm': compute_metrics(days),
     })
 
 

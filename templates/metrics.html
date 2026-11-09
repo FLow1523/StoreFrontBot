@@ -1,0 +1,126 @@
+{% extends "dashboard_base.html" %}
+
+{% block title %}StorefrontBot — Metrics{% endblock %}
+{% block page_title %}Metrics{% endblock %}
+{% block page_subtitle %}How bookings and conversations are going{% endblock %}
+
+{% block content %}
+  <div class="range">
+    {% for r in ranges %}
+    <a class="filter-btn{% if r == days %} active{% endif %}" href="?days={{ r }}">Last {{ r }} days</a>
+    {% endfor %}
+  </div>
+
+  <!-- KPIs -->
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-sub">in the last {{ m.days }} days</div>
+      <div class="stat-num">{{ m.made }}</div>
+      <div class="stat-label">Bookings made</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-sub">{{ m.cancelled }} of {{ m.made }} cancelled</div>
+      <div class="stat-num">{% if m.cancel_rate is None %}-{% else %}{{ m.cancel_rate }}%{% endif %}</div>
+      <div class="stat-label">Cancellation rate</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-sub">different phone numbers</div>
+      <div class="stat-num">{{ m.customers }}</div>
+      <div class="stat-label">Customers</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-sub">confirmed or pending</div>
+      <div class="stat-num">{{ m.upcoming }}</div>
+      <div class="stat-label">Upcoming bookings</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-sub">{{ m.slots_booked }} of {{ m.slots_total }} upcoming slots</div>
+      <div class="stat-num">{% if m.fill_rate is None %}-{% else %}{{ m.fill_rate }}%{% endif %}</div>
+      <div class="stat-label">Slots filled</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-sub">of {{ m.customers }} customers had booked before</div>
+      <div class="stat-num">{{ m.returning }}</div>
+      <div class="stat-label">Returning customers</div>
+    </div>
+  </div>
+
+  <!-- DAILY CHART -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Bookings made per day</div>
+      <span class="card-badge">{{ m.first_day }} to {{ m.last_day }}</span>
+    </div>
+    <div class="chart">
+      {% for d in m.daily %}
+      <div class="chart-col" title="{{ d.label }}: {{ d.count }}">
+        <div class="chart-bar{% if not d.count %} zero{% endif %}" style="height:{{ d.pct }}%"></div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="chart-axis"><span>{{ m.first_day }}</span><span>{{ m.last_day }}</span></div>
+    {% if not m.made %}<div class="metric-note">No bookings were made in this period.</div>{% endif %}
+  </div>
+
+  <div class="grid-2">
+    <!-- SERVICES -->
+    <div class="card">
+      <div class="card-header"><div class="card-title">What was booked</div></div>
+      {% for s in m.services %}
+      <div class="bar-row">
+        <span>{{ s.name }}</span>
+        <div class="bar-track"><div class="bar-fill" style="width:{{ s.bar }}%"></div></div>
+        <span class="bar-num">{{ s.count }}</span>
+      </div>
+      {% empty %}
+      <div class="empty">No bookings in this period.</div>
+      {% endfor %}
+    </div>
+
+    <!-- WEEKDAYS -->
+    <div class="card">
+      <div class="card-header"><div class="card-title">Busiest days for appointments</div></div>
+      {% for w in m.weekdays %}
+      <div class="bar-row">
+        <span>{{ w.name }}</span>
+        <div class="bar-track"><div class="bar-fill" style="width:{{ w.bar }}%"></div></div>
+        <span class="bar-num">{{ w.count }}</span>
+      </div>
+      {% endfor %}
+      <div class="metric-note">Counts active bookings made in this period, by the day of the appointment.</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <!-- TIMES -->
+    <div class="card">
+      <div class="card-header"><div class="card-title">Most booked times</div></div>
+      {% for t in m.times %}
+      <div class="bar-row">
+        <span>{{ t.name }}</span>
+        <div class="bar-track"><div class="bar-fill" style="width:{{ t.bar }}%"></div></div>
+        <span class="bar-num">{{ t.count }}</span>
+      </div>
+      {% empty %}
+      <div class="empty">No appointments in this period.</div>
+      {% endfor %}
+    </div>
+
+    <!-- BOT ACTIVITY -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Bot activity</div>
+        <span class="card-badge">Last 7 days</span>
+      </div>
+      {% if m.bot %}
+      <div class="kv"><span>Messages received</span><strong>{{ m.bot.messages }}</strong></div>
+      <div class="kv"><span>Customers who messaged</span><strong>{{ m.bot.customers }}</strong></div>
+      <div class="kv"><span>Of those, made a booking</span><strong>{{ m.bot.booked }}</strong></div>
+      <div class="kv"><span>Booking conversion</span><strong>{% if m.bot.conversion is None %}-{% else %}{{ m.bot.conversion }}%{% endif %}</strong></div>
+      <div class="metric-note">The bot keeps message records for 7 days, so this panel always covers the last 7 days, whichever range is selected.</div>
+      {% else %}
+      <div class="empty">Bot activity is not available right now.</div>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}
