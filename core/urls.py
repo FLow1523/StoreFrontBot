@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.urls import path, include
+from core.seo import robots_txt, sitemap_xml
 from bookings.views import (
     dashboard,
     update_booking,
@@ -12,6 +13,8 @@ from bookings.views import (
 )
 
 urlpatterns = [
+    path('robots.txt', robots_txt, name='robots-txt'),
+    path('sitemap.xml', sitemap_xml, name='sitemap-xml'),
     path('admin/', admin.site.urls),
     path('chatbot/', include('chatbot.urls')),
     path('dashboard/', dashboard, name='dashboard'),
