@@ -122,6 +122,7 @@ def landing(request):
     return render(request, 'landing/index.html', {
         'whatsapp_number': number if 8 <= len(number) <= 15 else None,
         'contact_email': email if re.fullmatch(r"[^@\s<>\"']+@[^@\s<>\"']+\.[^@\s<>\"']+", email) else None,
+        'site_url': settings.SITE_URL,
     })
 
 
