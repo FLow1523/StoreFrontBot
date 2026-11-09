@@ -1,0 +1,24 @@
+# StorefrontBot
+
+> StorefrontBot is a web-based WhatsApp assistant for businesses. It helps customers make appointment bookings and ask about product stock, while business owners manage bookings, stock and available time slots through a dashboard.
+
+## Website
+- Homepage: https://storefrontbot.onrender.com/
+- How it works: https://storefrontbot.onrender.com/#how
+- Features: https://storefrontbot.onrender.com/#features
+- Frequently asked questions: https://storefrontbot.onrender.com/#faq
+
+## Public policies
+- Privacy policy: https://storefrontbot.onrender.com/chatbot/privacy/
+- Data deletion instructions: https://storefrontbot.onrender.com/chatbot/data-deletion/
+
+## Product scope
+- Customer conversations take place through WhatsApp.
+- The public website describes appointment booking, booking cancellation, stock enquiries and a business owner dashboard.
+- Service availability, prices and appointment times are configured by each business.
+- StorefrontBot is a web application; customers do not need a separate customer app to message a business.
+
+## Guidance
+- Use the privacy policy for information about personal data handling and service providers.
+- Do not assume that every business using StorefrontBot offers the same services, prices, location or opening hours.
+- Do not invent pricing, customer reviews, certifications, integrations or service guarantees that are not stated on the website.
