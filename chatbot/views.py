@@ -3,9 +3,9 @@ import hmac
 import json
 import logging
 import os
-import random
 import re
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 
@@ -19,7 +19,7 @@ from twilio.base.exceptions import TwilioRestException
 from twilio.request_validator import RequestValidator
 from twilio.rest import Client as TwilioClient
 
-from bookings.models import Booking, TimeSlot
+from bookings.models import Booking, ChatSession, TimeSlot
 from inventory.models import Product
 from .models import ProcessedMessage
 
@@ -30,7 +30,14 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 # environment variable in Render if you want to try a different model.
 GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
-sessions = {}
+# Conversation state lives in the database (bookings.ChatSession). A step in
+# progress (choosing a time, cancelling) expires after an hour of silence,
+# because the list the customer saw may be out of date. Recent messages are
+# kept for a day, and old rows are deleted after a couple of days.
+SESSION_FLOW_MINUTES = 60
+SESSION_HISTORY_HOURS = 24
+SESSION_RETENTION_DAYS = 2
+FLOW_STEPS = ("choose_slot", "cancel_choose", "cancel_confirm")
 
 # Network and processing limits
 GROQ_TIMEOUT_SECONDS = 20
@@ -115,7 +122,7 @@ BOOKING_INTENT = re.compile(
     r"\b(book|booking|bookings|appointment|appointments|reserve|reservation|schedule)\b", re.I
 )
 BOOKING_INTENT_EXCLUDE = re.compile(
-    r"\b(cancel\w*|change\w*|reschedul\w*|move|edit|delete|status|consultation|follow[\s-]?up)\b", re.I
+    r"\b(cancel\w*|change\w*|reschedul\w*|move|edit|delete|stop|status|consultation|follow[\s-]?up)\b", re.I
 )
 
 BOOKING_CANCELLED_REPLY = (
@@ -630,13 +637,47 @@ def build_stock_reply():
     return "\n".join(lines)
 
 
+def number_digits(number):
+    return re.sub(r"\D", "", str(number or ""))
+
+
+def load_session(number):
+    """Read this customer's conversation state, or a fresh one if there is none or it is stale."""
+    session = {"step": "menu"}
+    key = number_digits(number)
+    if not key:
+        return session
+    row = ChatSession.objects.filter(phone_digits=key).first()
+    if row is None or not isinstance(row.data, dict):
+        return session
+    age = timezone.now() - row.updated_at
+    if age > timedelta(hours=SESSION_HISTORY_HOURS):
+        return session
+    session = dict(row.data)
+    session.setdefault("step", "menu")
+    if session["step"] in FLOW_STEPS and age > timedelta(minutes=SESSION_FLOW_MINUTES):
+        reset_booking_state(session)
+    return session
+
+
+def save_session(number, session):
+    key = number_digits(number)
+    if key:
+        ChatSession.objects.update_or_create(phone_digits=key, defaults={"data": session})
+
+
 def remember(from_number, session, text, reply):
     """Store the exchange in the session history (last 8 messages)."""
     history = session.get("history", [])
     history.append({"role": "user", "content": text})
     history.append({"role": "assistant", "content": reply})
     session["history"] = history[-8:]
-    sessions[from_number] = session
+    try:
+        save_session(from_number, session)
+    except Exception:
+        # The reply matters more than the saved state: never turn a booking
+        # confirmation into an error message because this one write failed.
+        logger.exception("Could not save the conversation state for %s", mask_phone(from_number))
 
 
 def reset_booking_state(session):
@@ -698,9 +739,9 @@ def handle_slot_choice(from_number, session, text):
 
 def build_reply(from_number, text):
     """Generate the reply for one incoming message and update the session."""
-    session = sessions.get(from_number, {"step": "menu"})
-
     try:
+        session = load_session(from_number)
+
         if session.get("step") == "choose_slot":
             reply = handle_slot_choice(from_number, session, text)
             remember(from_number, session, text, reply)
@@ -811,6 +852,34 @@ def purge_old_records():
     if deleted:
         logger.info("Purged %d old processed-message records", deleted)
 
+    session_cutoff = timezone.now() - timedelta(days=SESSION_RETENTION_DAYS)
+    removed, _ = ChatSession.objects.filter(updated_at__lt=session_cutoff).delete()
+    if removed:
+        logger.info("Purged %d old chat sessions", removed)
+
+
+PURGE_INTERVAL_SECONDS = 3600
+_last_purge = 0.0
+_purge_lock = threading.Lock()
+
+
+def maybe_purge_old_records():
+    """
+    Clean up old rows at most once an hour per server process. The first
+    message after a start always runs it, so old conversations are removed
+    on schedule even when traffic is low. A failure here never affects a customer.
+    """
+    global _last_purge
+    now = time.time()
+    with _purge_lock:
+        if now - _last_purge < PURGE_INTERVAL_SECONDS:
+            return
+        _last_purge = now
+    try:
+        purge_old_records()
+    except Exception:
+        logger.exception("Could not purge old records")
+
 
 def empty_twiml():
     """An empty TwiML response: tells Twilio 'received', send nothing back inline."""
@@ -870,9 +939,8 @@ def webhook(request):
                 )
                 executor.submit(process_message, from_number, text)
 
-            # Occasional housekeeping; moves to the scheduler in the reminders step.
-            if random.random() < 0.01:
-                purge_old_records()
+            # Housekeeping, at most once an hour; moves to the scheduler in the reminders step.
+            maybe_purge_old_records()
 
         except Exception:
             logger.exception("Webhook processing error")
