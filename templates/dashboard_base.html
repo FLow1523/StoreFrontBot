@@ -5,6 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}{{ site_name }} — Dashboard{% endblock %}</title>
+  <link rel="icon" type="image/png" href="{% static 'images/logo-horizontal-small.png' %}">
   <style>
     :root{
       --bg:#f3f5f9; --surface:#ffffff; --surface2:#f8fafc; --border:#e2e8f0;
@@ -22,10 +23,9 @@
     /* ── SIDEBAR ── */
     .sidebar{width:240px;flex-shrink:0;background:var(--brand);color:#cbd5e1;padding:24px 14px;
       display:flex;flex-direction:column;gap:6px;position:sticky;top:0;height:100vh;}
-    .logo{display:flex;align-items:center;gap:10px;color:#fff;text-decoration:none;
-      font-weight:700;font-size:1.05rem;letter-spacing:-.2px;padding:0 10px 22px;}
-    .logo-mark{width:30px;height:30px;border-radius:8px;background:var(--accent);color:#fff;
-      display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9rem;}
+    .logo{display:block;text-decoration:none;margin:0 4px 18px;padding:8px 10px;
+      background:#fff;border-radius:10px;line-height:0;}
+    .logo-img{display:block;width:100%;height:auto;max-height:72px;object-fit:contain;}
     .nav-section{font-size:.68rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
       color:#64748b;padding:14px 10px 6px;}
     .nav-group{display:flex;flex-direction:column;gap:2px;}
@@ -184,7 +184,8 @@
     @media(max-width:900px){
       body{flex-direction:column;}
       .sidebar{width:100%;height:auto;position:static;flex-direction:row;flex-wrap:wrap;align-items:center;gap:8px;padding:12px 16px;}
-      .logo{padding:0 8px 0 0;}
+      .logo{margin:0 8px 0 0;padding:4px 8px;width:130px;}
+      .logo-img{max-height:40px;}
       .nav-section{display:none;}
       .nav-group{flex-direction:row;}
       .live-pill{margin:0 0 0 auto;border-top:none;padding:0;}
@@ -199,9 +200,8 @@
 
 <!-- SIDEBAR -->
 <aside class="sidebar">
-  <a href="/" class="logo">
-    <div class="logo-mark">S</div>
-    {{ site_name }}
+  <a href="/" class="logo" title="{{ site_name }}">
+    <img class="logo-img" src="{% static 'images/logo-horizontal-small.png' %}" alt="{{ site_name }}">
   </a>
   <div class="nav-section">Manage</div>
   <nav class="nav-group">

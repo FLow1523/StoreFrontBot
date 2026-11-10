@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ site_name }} — Your WhatsApp keeps answering</title>
   <meta name="description" content="{{ site_name }} answers your customers' everyday questions on WhatsApp: stock, prices, location and opening hours. Appointments are available too.">
+  <link rel="icon" type="image/png" href="{% static 'images/logo-horizontal-small.png' %}">
   <style>
     :root{--navy:#0f1b2d;--accent:#1d4ed8;--soft:#e8effd;--bg:#f3f5f9;--text:#0f172a;--muted:#51607a;--border:#e2e8f0;--edge:#8391a7;--wa:#dcf8c6;}
     *{margin:0;padding:0;box-sizing:border-box;}
@@ -20,7 +22,7 @@
     header{position:sticky;top:0;z-index:10;background:rgba(255,255,255,.96);border-bottom:1px solid var(--border);}
     .bar{display:flex;align-items:center;justify-content:space-between;min-height:64px;gap:16px;flex-wrap:wrap;}
     .logo{display:flex;align-items:center;gap:10px;font-weight:700;text-decoration:none;letter-spacing:-.2px;}
-    .mark{width:30px;height:30px;border-radius:8px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.9rem;}
+    .logo-img{display:block;height:44px;width:auto;}
     nav ul{display:flex;align-items:center;gap:22px;list-style:none;font-size:.9rem;font-weight:500;flex-wrap:wrap;}
     nav a{text-decoration:none;color:var(--muted);}
     nav a:hover{color:var(--text);text-decoration:underline;}
@@ -94,7 +96,7 @@
 
 <header>
   <div class="wrap bar">
-    <a href="/" class="logo"><span class="mark" aria-hidden="true">S</span>{{ site_name }}</a>
+    <a href="/" class="logo"><img class="logo-img" src="{% static 'images/logo-horizontal-small.png' %}" alt="{{ site_name }}"></a>
     <nav aria-label="Main">
       <ul>
         <li><a href="#how">How it works</a></li>
