@@ -3,175 +3,243 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>StorefrontBot — Bookings and stock enquiries on WhatsApp</title>
-  <meta name="description" content="StorefrontBot lets customers book appointments, check stock and cancel bookings on WhatsApp, while you manage everything from one dashboard.">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <title>StorefrontBot — Your WhatsApp keeps answering</title>
+  <meta name="description" content="StorefrontBot answers your customers' everyday questions on WhatsApp: stock, prices, location and opening hours. Appointments are available too.">
   <style>
-    :root{--navy:#0f1b2d;--accent:#1d4ed8;--soft:#e8effd;--bg:#f3f5f9;--text:#0f172a;--muted:#64748b;--border:#e2e8f0;--wa:#dcf8c6;}
+    :root{--navy:#0f1b2d;--accent:#1d4ed8;--soft:#e8effd;--bg:#f3f5f9;--text:#0f172a;--muted:#51607a;--border:#e2e8f0;--edge:#8391a7;--wa:#dcf8c6;}
     *{margin:0;padding:0;box-sizing:border-box;}
-    html{scroll-behavior:smooth;}
-    body{font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;color:var(--text);background:#fff;line-height:1.6;-webkit-font-smoothing:antialiased;}
+    @media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth;}}
+    body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:var(--text);background:#fff;line-height:1.6;-webkit-font-smoothing:antialiased;}
     a{color:inherit;}
+    a:focus-visible,summary:focus-visible{outline:3px solid var(--accent);outline-offset:3px;border-radius:4px;}
+    .cta a:focus-visible{outline-color:#fff;}
+    .skip{position:absolute;left:12px;top:-60px;background:var(--navy);color:#fff;padding:10px 16px;border-radius:8px;z-index:20;text-decoration:none;font-weight:600;}
+    .skip:focus{top:12px;}
+    .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
     .wrap{max-width:1120px;margin:0 auto;padding:0 24px;}
-    header{position:sticky;top:0;z-index:10;background:rgba(255,255,255,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);}
-    .bar{display:flex;align-items:center;justify-content:space-between;height:64px;gap:16px;}
+    header{position:sticky;top:0;z-index:10;background:rgba(255,255,255,.96);border-bottom:1px solid var(--border);}
+    .bar{display:flex;align-items:center;justify-content:space-between;min-height:64px;gap:16px;flex-wrap:wrap;}
     .logo{display:flex;align-items:center;gap:10px;font-weight:700;text-decoration:none;letter-spacing:-.2px;}
     .mark{width:30px;height:30px;border-radius:8px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.9rem;}
-    nav{display:flex;align-items:center;gap:24px;font-size:.9rem;font-weight:500;}
+    nav ul{display:flex;align-items:center;gap:22px;list-style:none;font-size:.9rem;font-weight:500;flex-wrap:wrap;}
     nav a{text-decoration:none;color:var(--muted);}
-    nav a:hover{color:var(--text);}
-    .btn{display:inline-block;padding:11px 20px;border-radius:8px;font-weight:600;font-size:.92rem;text-decoration:none;border:1px solid transparent;}
+    nav a:hover{color:var(--text);text-decoration:underline;}
+    nav a.btn{color:var(--text);}
+    .btn{display:inline-block;padding:12px 22px;border-radius:8px;font-weight:600;font-size:.95rem;text-decoration:none;border:1px solid transparent;}
     .btn-solid{background:var(--accent);color:#fff;}
     .btn-solid:hover{background:#1e40af;}
-    .btn-line{background:#fff;border-color:var(--border);color:var(--text);}
-    .btn-line:hover{border-color:#cbd5e1;background:#f8fafc;}
+    .btn-line{background:#fff;border-color:var(--edge);color:var(--text);}
+    .btn-line:hover{background:#f1f5f9;}
     .hero{padding:72px 0 80px;background:linear-gradient(180deg,var(--bg),#fff);}
     .hero-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:56px;align-items:center;}
-    .eyebrow{font-size:.78rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:14px;}
-    h1{font-size:clamp(2rem,4.4vw,3.1rem);line-height:1.12;letter-spacing:-1.2px;margin-bottom:18px;}
-    h2{font-size:clamp(1.5rem,3vw,2rem);letter-spacing:-.6px;line-height:1.2;margin-bottom:12px;}
-    .lead{font-size:1.08rem;color:var(--muted);max-width:520px;margin-bottom:28px;}
+    .eyebrow{font-size:.78rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:14px;}
+    h1{font-size:clamp(2.1rem,4.6vw,3.2rem);line-height:1.1;letter-spacing:-1.3px;margin-bottom:18px;}
+    h2{font-size:clamp(1.55rem,3vw,2.1rem);letter-spacing:-.6px;line-height:1.2;margin-bottom:12px;}
+    .lead{font-size:1.1rem;color:var(--muted);max-width:540px;margin-bottom:28px;}
     .actions{display:flex;gap:12px;flex-wrap:wrap;}
     .chat{background:#e5ddd5;border-radius:16px;border:1px solid var(--border);box-shadow:0 12px 32px rgba(15,23,42,.12);overflow:hidden;}
     .chat-top{background:var(--navy);color:#fff;padding:12px 18px;font-size:.85rem;font-weight:600;display:flex;justify-content:space-between;}
-    .chat-top span{font-weight:400;color:#94a3b8;}
+    .chat-top span{font-weight:400;color:#cbd5e1;}
     .msgs{padding:18px;display:flex;flex-direction:column;gap:8px;}
-    .m{max-width:84%;padding:9px 12px;border-radius:10px;font-size:.84rem;line-height:1.45;box-shadow:0 1px 1px rgba(0,0,0,.08);}
+    .m{max-width:86%;padding:9px 12px;border-radius:10px;font-size:.88rem;line-height:1.45;box-shadow:0 1px 1px rgba(0,0,0,.08);}
     .in{align-self:flex-end;background:var(--wa);}
     .out{align-self:flex-start;background:#fff;}
-    .note{font-size:.75rem;color:var(--muted);text-align:center;margin-top:12px;}
+    .note{font-size:.8rem;color:var(--muted);text-align:center;margin-top:12px;}
     section{padding:76px 0;}
     .alt{background:var(--bg);}
-    .head{max-width:620px;margin-bottom:40px;}
+    .head{max-width:640px;margin-bottom:40px;}
     .head p{color:var(--muted);}
+    .familiar{text-align:center;}
+    .familiar .wrap{max-width:760px;}
+    .quotes{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:30px 0;text-align:left;}
+    .quotes blockquote{background:#fff;border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:10px;padding:16px 18px;font-size:1.02rem;font-weight:500;}
+    .familiar p{font-size:1.12rem;color:var(--muted);}
+    .familiar p strong{color:var(--text);}
     .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;counter-reset:s;}
     .step{background:#fff;border:1px solid var(--border);border-radius:12px;padding:26px;}
     .step::before{counter-increment:s;content:counter(s);display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:var(--soft);color:var(--accent);font-weight:700;font-size:.9rem;margin-bottom:14px;}
-    .step h3,.card h3{font-size:1.02rem;margin-bottom:6px;}
-    .step p,.card p{color:var(--muted);font-size:.93rem;}
+    .step h3,.card h3{font-size:1.04rem;margin-bottom:6px;}
+    .step p,.card p{color:var(--muted);font-size:.95rem;}
     .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}
     .card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:26px;}
+    .split{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;}
+    .split p{color:var(--muted);margin-bottom:14px;}
+    .tick{list-style:none;color:var(--muted);}
+    .tick li{padding-left:26px;position:relative;margin-bottom:8px;}
+    .tick li::before{content:"\2713";position:absolute;left:0;color:var(--accent);font-weight:700;}
     details{background:#fff;border:1px solid var(--border);border-radius:10px;margin-bottom:10px;}
     summary{cursor:pointer;padding:16px 20px;font-weight:600;list-style:none;display:flex;justify-content:space-between;gap:12px;}
     summary::-webkit-details-marker{display:none;}
-    summary::after{content:"+";color:var(--muted);font-weight:400;font-size:1.2rem;line-height:1;}
+    summary::after{content:"+";color:var(--muted);font-weight:400;font-size:1.3rem;line-height:1;}
     details[open] summary::after{content:"\2212";}
-    details p{padding:0 20px 18px;color:var(--muted);font-size:.95rem;}
+    details p{padding:0 20px 18px;color:var(--muted);font-size:.97rem;}
     .faq{max-width:760px;}
     .cta{background:var(--navy);color:#fff;text-align:center;}
-    .cta p{color:#94a3b8;max-width:520px;margin:0 auto 26px;}
+    .cta p{color:#cbd5e1;max-width:540px;margin:0 auto 26px;}
     .cta .actions{justify-content:center;}
-    .cta .btn-line{background:transparent;color:#fff;border-color:#334155;}
-    footer{padding:28px 0;font-size:.85rem;color:var(--muted);border-top:1px solid var(--border);}
-    footer .bar{height:auto;flex-wrap:wrap;}
-    footer nav{font-size:.85rem;gap:18px;}
+    .cta .btn-line{background:transparent;color:#fff;border-color:#94a3b8;}
+    .cta .btn-line:hover{background:rgba(255,255,255,.08);}
+    footer{padding:28px 0;font-size:.88rem;color:var(--muted);border-top:1px solid var(--border);}
+    footer .bar{align-items:flex-start;}
+    footer ul{gap:18px;font-size:.88rem;}
+    .legal-note{flex-basis:100%;font-size:.8rem;}
     @media(max-width:860px){
-      .hero-grid,.steps,.cards{grid-template-columns:1fr;}
-      .hero{padding:44px 0 56px;} section{padding:52px 0;}
-      nav a.hide-sm{display:none;}
+      .hero-grid,.steps,.cards,.split,.quotes{grid-template-columns:1fr;}
+      .hero{padding:44px 0 56px;} section{padding:52px 0;} .split{gap:28px;}
     }
   </style>
 </head>
 <body>
+<a class="skip" href="#main">Skip to main content</a>
 
 <header>
   <div class="wrap bar">
-    <a href="/" class="logo"><span class="mark">S</span>StorefrontBot</a>
-    <nav>
-      <a href="#how" class="hide-sm">How it works</a>
-      <a href="#features" class="hide-sm">Features</a>
-      <a href="#faq" class="hide-sm">FAQ</a>
-      <a href="/dashboard/" class="btn btn-line">Owner login</a>
+    <a href="/" class="logo"><span class="mark" aria-hidden="true">S</span>StorefrontBot</a>
+    <nav aria-label="Main">
+      <ul>
+        <li><a href="#how">How it works</a></li>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#bookings">Bookings</a></li>
+        <li><a href="#faq">FAQ</a></li>
+        <li><a href="/dashboard/" class="btn btn-line">Owner login</a></li>
+      </ul>
     </nav>
   </div>
 </header>
 
+<main id="main">
+
 <section class="hero">
   <div class="wrap hero-grid">
     <div>
-      <div class="eyebrow">Bookings and stock on WhatsApp</div>
-      <h1>Let customers book, check stock and cancel on WhatsApp.</h1>
-      <p class="lead">StorefrontBot answers your customers' messages at any hour. They pick from the appointment times you publish, and every booking lands in one simple dashboard.</p>
+      <div class="eyebrow">WhatsApp assistant for your business</div>
+      <h1>Busy with a customer? Your WhatsApp keeps answering.</h1>
+      <p class="lead">&ldquo;Do you have it in stock?&rdquo; &ldquo;How much is it?&rdquo; &ldquo;Where are you?&rdquo; StorefrontBot answers the questions customers send most, so you don&rsquo;t have to stop what you&rsquo;re doing.</p>
       <div class="actions">
-        {% if whatsapp_number %}<a class="btn btn-solid" href="https://wa.me/{{ whatsapp_number }}?text=Hi">Try it on WhatsApp</a>{% endif %}
-        {% if contact_email %}<a class="btn {% if whatsapp_number %}btn-line{% else %}btn-solid{% endif %}" href="mailto:{{ contact_email }}">Contact us</a>{% endif %}
-        <a class="btn btn-line" href="#how">See how it works</a>
+        {% if whatsapp_number %}<a class="btn btn-solid" href="https://wa.me/{{ whatsapp_number }}?text=Hi">Message us on WhatsApp</a>{% endif %}
+        {% if contact_email %}<a class="btn {% if whatsapp_number %}btn-line{% else %}btn-solid{% endif %}" href="mailto:{{ contact_email }}">Email us</a>{% endif %}
+        <a class="btn {% if whatsapp_number or contact_email %}btn-line{% else %}btn-solid{% endif %}" href="#demo">See it in action</a>
       </div>
     </div>
-    <div>
-      <div class="chat" aria-label="Example WhatsApp conversation">
+    <div id="demo">
+      <div class="chat" role="group" aria-label="Example WhatsApp conversation about stock">
         <div class="chat-top">StorefrontBot <span>WhatsApp</span></div>
         <div class="msgs">
-          <div class="m in">i would like to book an appointment</div>
-          <div class="m out">Our services:<br><br>Consultation - N$500<br>Follow-up - N$250<br>Other - Price on request<br><br>Which service would you like to book?</div>
-          <div class="m in">Consultation</div>
-          <div class="m out">Thank you, Sarah. These times are available:<br><br>1. Mon, 09:00<br>2. Mon, 10:00<br>3. Tue, 09:00<br><br>Reply with the number of the time you would like.</div>
-          <div class="m in">2</div>
-          <div class="m out"><strong>Booking confirmed.</strong><br>Service: Consultation (N$500)<br>Time: Mon, 10:00</div>
+          <div class="m in"><span class="sr">Customer: </span>do you still have the blue one?</div>
+          <div class="m out"><span class="sr">StorefrontBot: </span>Yes, the Blue Widget is in stock: N$120, 3 units available.</div>
+          <div class="m in"><span class="sr">Customer: </span>are you open saturday?</div>
+          <div class="m out"><span class="sr">StorefrontBot: </span>We are open Monday to Friday, 8am to 5pm.</div>
         </div>
       </div>
-      <p class="note">Example conversation. Services, prices and times are set by each business.</p>
+      <p class="note">Example conversation. Products, prices and hours are set up for each business.</p>
     </div>
+  </div>
+</section>
+
+<section class="familiar alt" aria-labelledby="familiar-title">
+  <div class="wrap">
+    <h2 id="familiar-title">Sound familiar?</h2>
+    <div class="quotes">
+      <blockquote>&ldquo;Hi, do you still have the blue one?&rdquo;</blockquote>
+      <blockquote>&ldquo;How much is it?&rdquo;</blockquote>
+      <blockquote>&ldquo;Are you open Saturday?&rdquo;</blockquote>
+      <blockquote>&ldquo;Is it still available?&rdquo;</blockquote>
+    </div>
+    <p><strong>That&rsquo;s a lot of typing between customers.</strong> StorefrontBot takes it off your hands, so your customer gets an answer and you carry on with your day.</p>
   </div>
 </section>
 
 <section id="how">
   <div class="wrap">
-    <div class="head"><div class="eyebrow">How it works</div><h2>Three steps, no app to download.</h2><p>Your customers stay inside WhatsApp, and you stay in control of your calendar.</p></div>
+    <div class="head"><div class="eyebrow">How it works</div><h2>Customers ask. The bot answers.</h2><p>Your customers stay in WhatsApp. You stay in charge of what the bot knows.</p></div>
     <div class="steps">
-      <div class="step"><h3>You publish your available times</h3><p>Add single slots or a whole day at once from the dashboard. Customers can only book the times you list.</p></div>
-      <div class="step"><h3>Customers message your number</h3><p>They choose a service, give their name and pick a time from a numbered list. The bot confirms straight away.</p></div>
-      <div class="step"><h3>You see every booking</h3><p>Bookings appear in your dashboard with the customer's phone number. If a customer cancels, that time goes back on the list.</p></div>
+      <div class="step"><h3>We set it up for your business</h3><p>Your stock list, prices, location and opening hours go into the assistant, and it connects to your WhatsApp Business number.</p></div>
+      <div class="step"><h3>Customers message you as usual</h3><p>They type normally, with no commands to learn and no app to download, and get an answer in the same chat.</p></div>
+      <div class="step"><h3>You keep stock up to date</h3><p>Change a quantity in your dashboard and the next customer who asks gets the new answer.</p></div>
     </div>
   </div>
 </section>
 
 <section id="features" class="alt">
   <div class="wrap">
-    <div class="head"><div class="eyebrow">Features</div><h2>What the bot does today.</h2></div>
+    <div class="head"><div class="eyebrow">Features</div><h2>What it does for every business.</h2></div>
     <div class="cards">
-      <div class="card"><h3>Bookings from your own slots</h3><p>No back-and-forth over dates. A time can only be booked once, so double-bookings cannot happen.</p></div>
-      <div class="card"><h3>Instant confirmations</h3><p>Each customer gets a confirmation with the service, date, time and location, taken directly from your records.</p></div>
-      <div class="card"><h3>Self-service cancellations</h3><p>Customers cancel their own bookings by message, and only ever their own. The freed time is offered to the next customer.</p></div>
-      <div class="card"><h3>Stock enquiries</h3><p>Customers can ask what is in stock and see names, prices and quantities from the list you maintain.</p></div>
-      <div class="card"><h3>Owner dashboard</h3><p>Manage bookings, adjust stock levels and publish time slots. Search bookings by name or phone number.</p></div>
-      <div class="card"><h3>Simple metrics</h3><p>See bookings per day, cancellations, popular services and times, and how many customers messaged the bot.</p></div>
+      <div class="card"><h3>Answers &ldquo;is it in stock?&rdquo;</h3><p>Customers see names, prices and quantities taken from the list you maintain.</p></div>
+      <div class="card"><h3>Handles the everyday questions</h3><p>Prices, where you are and when you&rsquo;re open, answered without you lifting a finger.</p></div>
+      <div class="card"><h3>Customers just type</h3><p>No menus to memorise. Short numbered options are there to help, but plain messages work too.</p></div>
+      <div class="card"><h3>Sticks to your business</h3><p>It is set up to talk about your business and to steer other topics politely back.</p></div>
+      <div class="card"><h3>Stock updates in a tap</h3><p>Raise or lower a quantity from your dashboard, on your phone or computer.</p></div>
+      <div class="card"><h3>Simple numbers</h3><p>See how many customers messaged you and, if you use bookings, how many booked or cancelled.</p></div>
     </div>
   </div>
 </section>
 
-<section id="faq">
+<section id="bookings">
+  <div class="wrap split">
+    <div>
+      <div class="eyebrow">An extra, if you need it</div>
+      <h2>Take appointments too.</h2>
+      <p>If your business works by appointment, StorefrontBot can take bookings as well. You publish the times you&rsquo;re available and customers choose from them.</p>
+      <ul class="tick">
+        <li>Customers can only book times you have published.</li>
+        <li>Each time can be booked once through the bot.</li>
+        <li>They get a confirmation with the details.</li>
+        <li>They can cancel by message, and the time goes back on the list.</li>
+      </ul>
+    </div>
+    <div>
+      <div class="chat" role="group" aria-label="Example WhatsApp conversation about booking">
+        <div class="chat-top">StorefrontBot <span>WhatsApp</span></div>
+        <div class="msgs">
+          <div class="m in"><span class="sr">Customer: </span>i would like to book</div>
+          <div class="m out"><span class="sr">StorefrontBot: </span>These times are available:<br><br>1. Mon, 09:00<br>2. Mon, 10:00<br>3. Tue, 09:00<br><br>Reply with the number of the time you would like.</div>
+          <div class="m in"><span class="sr">Customer: </span>2</div>
+          <div class="m out"><span class="sr">StorefrontBot: </span><strong>Booking confirmed.</strong><br>Time: Mon, 10:00</div>
+        </div>
+      </div>
+      <p class="note">Example conversation. Services and times are set by each business.</p>
+    </div>
+  </div>
+</section>
+
+<section id="faq" class="alt">
   <div class="wrap faq">
     <div class="head"><div class="eyebrow">FAQ</div><h2>Common questions.</h2></div>
-    <details><summary>Do my customers need to download anything?</summary><p>No. They message your WhatsApp number as they normally would, and the bot replies in the same chat.</p></details>
-    <details><summary>Can customers book any time they like?</summary><p>No. They can only book times you have published, so your calendar stays under your control.</p></details>
-    <details><summary>Can customers cancel or change a booking?</summary><p>They can cancel their own booking by messaging the bot. To change a time, they cancel and book a new one.</p></details>
-    <details><summary>Do I need a special WhatsApp number?</summary><p>The bot runs on the WhatsApp Business Platform, which needs a number that is not already registered with a regular WhatsApp account, plus a business verification step. We can guide you through it.</p></details>
-    <details><summary>What does it cost?</summary><p>It depends on your setup, and WhatsApp charges its own per-message fees. Get in touch and we will give you a clear quote.</p></details>
+    <details><summary>Do my customers need to download anything?</summary><p>No. They message your WhatsApp number as they normally would, and the assistant replies in the same chat.</p></details>
+    <details><summary>What can it answer?</summary><p>Stock, prices, where you are and when you&rsquo;re open, based on the details set up for your business. Other topics are politely steered back to your business.</p></details>
+    <details><summary>Is a real person replying?</summary><p>No. Replies come from an automated assistant. It uses AI for open-ended questions, while stock lists, bookings and confirmations come straight from your records.</p></details>
+    <details><summary>Do I have to use bookings?</summary><p>No. Bookings are an extra for businesses that work by appointment. If that isn&rsquo;t you, you can ignore them.</p></details>
+    <details><summary>Do I need a special WhatsApp number?</summary><p>Usually yes. The WhatsApp Business Platform typically needs a number that isn&rsquo;t already registered with a regular WhatsApp account, plus a business verification step.</p></details>
+    <details><summary>What does it cost?</summary><p>It depends on your setup, and WhatsApp charges its own per-message fees. Get in touch and we will give you a quote.</p></details>
   </div>
 </section>
 
 {% if whatsapp_number or contact_email %}
-<section class="cta">
+<section class="cta" aria-labelledby="cta-title">
   <div class="wrap">
-    <h2>Want it for your business?</h2>
-    <p>Tell us what you offer and we will show you how the bot would handle your bookings and enquiries.</p>
+    <h2 id="cta-title">What do your customers keep asking you?</h2>
+    <p>Tell us about your business and we&rsquo;ll show you how StorefrontBot would answer.</p>
     <div class="actions">
       {% if whatsapp_number %}<a class="btn btn-solid" href="https://wa.me/{{ whatsapp_number }}?text=Hi">Message us on WhatsApp</a>{% endif %}
-      {% if contact_email %}<a class="btn btn-line" href="mailto:{{ contact_email }}">{{ contact_email }}</a>{% endif %}
+      {% if contact_email %}<a class="btn {% if whatsapp_number %}btn-line{% else %}btn-solid{% endif %}" href="mailto:{{ contact_email }}">Email {{ contact_email }}</a>{% endif %}
     </div>
   </div>
 </section>
 {% endif %}
 
+</main>
+
 <footer>
   <div class="wrap bar">
     <span>&copy; {% now "Y" %} StorefrontBot</span>
-    <nav>
-      <a href="/chatbot/privacy/">Privacy policy</a>
-      <a href="/chatbot/data-deletion/">Data deletion</a>
-      <a href="/dashboard/">Owner login</a>
+    <nav aria-label="Footer">
+      <ul>
+        <li><a href="/chatbot/privacy/">Privacy policy</a></li>
+        <li><a href="/chatbot/data-deletion/">Data deletion</a></li>
+        <li><a href="/dashboard/">Owner login</a></li>
+      </ul>
     </nav>
+    <p class="legal-note">StorefrontBot is not affiliated with, endorsed by or sponsored by WhatsApp or Meta. WhatsApp is a trademark of its owner.</p>
   </div>
 </footer>
 
