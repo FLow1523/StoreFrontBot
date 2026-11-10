@@ -15,6 +15,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST
 
 from inventory.models import Product
+from .branding import site_name
 from .metrics import ALLOWED_RANGES, compute_metrics, parse_range
 from .models import Booking, TimeSlot
 
@@ -120,6 +121,7 @@ def landing(request):
     number = re.sub(r"\D", "", os.getenv("LANDING_WHATSAPP_NUMBER", ""))
     email = (os.getenv("CONTACT_EMAIL") or "").strip()
     return render(request, 'landing/index.html', {
+        'site_name': site_name(),
         'whatsapp_number': number if 8 <= len(number) <= 15 else None,
         'contact_email': email if re.fullmatch(r"[^@\s<>\"']+@[^@\s<>\"']+\.[^@\s<>\"']+", email) else None,
     })
@@ -140,6 +142,7 @@ def dashboard(request):
     )
     open_slots = TimeSlot.objects.filter(start__gt=now, is_booked=False).count()
     return render(request, 'dashboard.html', {
+        'site_name': site_name(),
         'active_page': 'bookings',
         'bookings': bookings,
         'total_bookings': total_bookings,
@@ -157,6 +160,7 @@ def product_list(request):
     total_products = products.count()
     in_stock = products.filter(quantity__gt=0).count()
     return render(request, 'products.html', {
+        'site_name': site_name(),
         'active_page': 'products',
         'products': products,
         'total_products': total_products,
@@ -169,6 +173,7 @@ def product_list(request):
 def metrics_page(request):
     days = parse_range(request.GET.get('days'))
     return render(request, 'metrics.html', {
+        'site_name': site_name(),
         'active_page': 'metrics',
         'days': days,
         'ranges': ALLOWED_RANGES,

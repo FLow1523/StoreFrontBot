@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>StorefrontBot — Your WhatsApp keeps answering</title>
-  <meta name="description" content="StorefrontBot answers your customers' everyday questions on WhatsApp: stock, prices, location and opening hours. Appointments are available too.">
+  <title>{{ site_name }} — Your WhatsApp keeps answering</title>
+  <meta name="description" content="{{ site_name }} answers your customers' everyday questions on WhatsApp: stock, prices, location and opening hours. Appointments are available too.">
   <style>
     :root{--navy:#0f1b2d;--accent:#1d4ed8;--soft:#e8effd;--bg:#f3f5f9;--text:#0f172a;--muted:#51607a;--border:#e2e8f0;--edge:#8391a7;--wa:#dcf8c6;}
     *{margin:0;padding:0;box-sizing:border-box;}
@@ -94,7 +94,7 @@
 
 <header>
   <div class="wrap bar">
-    <a href="/" class="logo"><span class="mark" aria-hidden="true">S</span>StorefrontBot</a>
+    <a href="/" class="logo"><span class="mark" aria-hidden="true">S</span>{{ site_name }}</a>
     <nav aria-label="Main">
       <ul>
         <li><a href="#how">How it works</a></li>
@@ -114,7 +114,7 @@
     <div>
       <div class="eyebrow">WhatsApp assistant for your business</div>
       <h1>Busy with a customer? Your WhatsApp keeps answering.</h1>
-      <p class="lead">&ldquo;Do you have it in stock?&rdquo; &ldquo;How much is it?&rdquo; &ldquo;Where are you?&rdquo; StorefrontBot answers the questions customers send most, so you don&rsquo;t have to stop what you&rsquo;re doing.</p>
+      <p class="lead">&ldquo;Do you have it in stock?&rdquo; &ldquo;How much is it?&rdquo; &ldquo;Where are you?&rdquo; {{ site_name }} answers the questions customers send most, so you don&rsquo;t have to stop what you&rsquo;re doing.</p>
       <div class="actions">
         {% if whatsapp_number %}<a class="btn btn-solid" href="https://wa.me/{{ whatsapp_number }}?text=Hi">Message us on WhatsApp</a>{% endif %}
         {% if contact_email %}<a class="btn {% if whatsapp_number %}btn-line{% else %}btn-solid{% endif %}" href="mailto:{{ contact_email }}">Email us</a>{% endif %}
@@ -123,12 +123,12 @@
     </div>
     <div id="demo">
       <div class="chat" role="group" aria-label="Example WhatsApp conversation about stock">
-        <div class="chat-top">StorefrontBot <span>WhatsApp</span></div>
+        <div class="chat-top">{{ site_name }} <span>WhatsApp</span></div>
         <div class="msgs">
           <div class="m in"><span class="sr">Customer: </span>do you still have the blue one?</div>
-          <div class="m out"><span class="sr">StorefrontBot: </span>Yes, the Blue Widget is in stock: N$120, 3 units available.</div>
+          <div class="m out"><span class="sr">{{ site_name }}: </span>Yes, the Blue Widget is in stock: N$120, 3 units available.</div>
           <div class="m in"><span class="sr">Customer: </span>are you open saturday?</div>
-          <div class="m out"><span class="sr">StorefrontBot: </span>We are open Monday to Friday, 8am to 5pm.</div>
+          <div class="m out"><span class="sr">{{ site_name }}: </span>We are open Monday to Friday, 8am to 5pm.</div>
         </div>
       </div>
       <p class="note">Example conversation. Products, prices and hours are set up for each business.</p>
@@ -145,7 +145,7 @@
       <blockquote>&ldquo;Are you open Saturday?&rdquo;</blockquote>
       <blockquote>&ldquo;Is it still available?&rdquo;</blockquote>
     </div>
-    <p><strong>That&rsquo;s a lot of typing between customers.</strong> StorefrontBot takes it off your hands, so your customer gets an answer and you carry on with your day.</p>
+    <p><strong>That&rsquo;s a lot of typing between customers.</strong> {{ site_name }} takes it off your hands, so your customer gets an answer and you carry on with your day.</p>
   </div>
 </section>
 
@@ -179,7 +179,7 @@
     <div>
       <div class="eyebrow">An extra, if you need it</div>
       <h2>Take appointments too.</h2>
-      <p>If your business works by appointment, StorefrontBot can take bookings as well. You publish the times you&rsquo;re available and customers choose from them.</p>
+      <p>If your business works by appointment, {{ site_name }} can take bookings as well. You publish the times you&rsquo;re available and customers choose from them.</p>
       <ul class="tick">
         <li>Customers can only book times you have published.</li>
         <li>Each time can be booked once through the bot.</li>
@@ -189,12 +189,12 @@
     </div>
     <div>
       <div class="chat" role="group" aria-label="Example WhatsApp conversation about booking">
-        <div class="chat-top">StorefrontBot <span>WhatsApp</span></div>
+        <div class="chat-top">{{ site_name }} <span>WhatsApp</span></div>
         <div class="msgs">
           <div class="m in"><span class="sr">Customer: </span>i would like to book</div>
-          <div class="m out"><span class="sr">StorefrontBot: </span>These times are available:<br><br>1. Mon, 09:00<br>2. Mon, 10:00<br>3. Tue, 09:00<br><br>Reply with the number of the time you would like.</div>
+          <div class="m out"><span class="sr">{{ site_name }}: </span>These times are available:<br><br>1. Mon, 09:00<br>2. Mon, 10:00<br>3. Tue, 09:00<br><br>Reply with the number of the time you would like.</div>
           <div class="m in"><span class="sr">Customer: </span>2</div>
-          <div class="m out"><span class="sr">StorefrontBot: </span><strong>Booking confirmed.</strong><br>Time: Mon, 10:00</div>
+          <div class="m out"><span class="sr">{{ site_name }}: </span><strong>Booking confirmed.</strong><br>Time: Mon, 10:00</div>
         </div>
       </div>
       <p class="note">Example conversation. Services and times are set by each business.</p>
@@ -218,7 +218,7 @@
 <section class="cta" aria-labelledby="cta-title">
   <div class="wrap">
     <h2 id="cta-title">What do your customers keep asking you?</h2>
-    <p>Tell us about your business and we&rsquo;ll show you how StorefrontBot would answer.</p>
+    <p>Tell us about your business and we&rsquo;ll show you how {{ site_name }} would answer.</p>
     <div class="actions">
       {% if whatsapp_number %}<a class="btn btn-solid" href="https://wa.me/{{ whatsapp_number }}?text=Hi">Message us on WhatsApp</a>{% endif %}
       {% if contact_email %}<a class="btn {% if whatsapp_number %}btn-line{% else %}btn-solid{% endif %}" href="mailto:{{ contact_email }}">Email {{ contact_email }}</a>{% endif %}
@@ -231,7 +231,7 @@
 
 <footer>
   <div class="wrap bar">
-    <span>&copy; {% now "Y" %} StorefrontBot</span>
+    <span>&copy; {% now "Y" %} {{ site_name }}</span>
     <nav aria-label="Footer">
       <ul>
         <li><a href="/chatbot/privacy/">Privacy policy</a></li>
@@ -239,7 +239,7 @@
         <li><a href="/dashboard/">Owner login</a></li>
       </ul>
     </nav>
-    <p class="legal-note">StorefrontBot is not affiliated with, endorsed by or sponsored by WhatsApp or Meta. WhatsApp is a trademark of its owner.</p>
+    <p class="legal-note">{{ site_name }} is not affiliated with, endorsed by or sponsored by WhatsApp or Meta. WhatsApp is a trademark of its owner.</p>
   </div>
 </footer>
 

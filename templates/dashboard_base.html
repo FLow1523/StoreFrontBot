@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}StorefrontBot — Dashboard{% endblock %}</title>
+  <title>{% block title %}{{ site_name }} — Dashboard{% endblock %}</title>
   <style>
     :root{
       --bg:#f3f5f9; --surface:#ffffff; --surface2:#f8fafc; --border:#e2e8f0;
@@ -201,7 +201,7 @@
 <aside class="sidebar">
   <a href="/" class="logo">
     <div class="logo-mark">S</div>
-    StorefrontBot
+    {{ site_name }}
   </a>
   <div class="nav-section">Manage</div>
   <nav class="nav-group">

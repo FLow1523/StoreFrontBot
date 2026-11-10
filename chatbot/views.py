@@ -19,6 +19,7 @@ from twilio.base.exceptions import TwilioRestException
 from twilio.request_validator import RequestValidator
 from twilio.rest import Client as TwilioClient
 
+from bookings.branding import site_name
 from bookings.models import Booking, ChatSession, TimeSlot
 from inventory.models import Product
 from .models import ProcessedMessage
@@ -61,7 +62,7 @@ MAX_FIELD_LENGTH = 50
 MAX_INCOMING_TEXT_LENGTH = 1000
 CONTROL_CHARACTERS = re.compile(r"[\x00-\x1f\x7f]")
 
-BUSINESS_NAME = "StorefrontBot"
+BUSINESS_NAME = site_name()
 BUSINESS_LOCATION = "Windhoek, Namibia"
 BUSINESS_HOURS = "Monday to Friday, 8am to 5pm"
 SERVICE_PRICES = {
@@ -355,6 +356,43 @@ def send_message(to, message):
     )
 
 
+def send_template_message(to, content_sid, variables):
+    """
+    Send an approved WhatsApp template through Twilio. Templates are the only
+    way to message a customer who has not written to us in the last 24 hours.
+    Raises if the message could not be delivered.
+    """
+    from_whatsapp = os.getenv("TWILIO_WHATSAPP_NUMBER")
+    if not from_whatsapp:
+        raise RuntimeError("TWILIO_WHATSAPP_NUMBER must be set")
+    if not from_whatsapp.startswith("whatsapp:"):
+        from_whatsapp = f"whatsapp:{from_whatsapp}"
+
+    to_clean = to.replace("whatsapp:", "").strip()
+    if not to_clean.startswith("+"):
+        to_clean = f"+{to_clean}"
+
+    try:
+        result = get_twilio_client().messages.create(
+            from_=from_whatsapp,
+            to=f"whatsapp:{to_clean}",
+            content_sid=content_sid,
+            content_variables=json.dumps(variables),
+        )
+    except TwilioRestException as exc:
+        logger.warning(
+            "Twilio template send failed for %s: status=%s code=%s message=%s",
+            mask_phone(to_clean),
+            exc.status,
+            exc.code,
+            exc.msg,
+        )
+        raise
+    logger.info(
+        "Twilio template send accepted for %s (status=%s)", mask_phone(to_clean), result.status
+    )
+
+
 def get_stock_context():
     products = Product.objects.all()
     if not products:
@@ -377,7 +415,7 @@ def ask_groq(user_message, session):
     stock_info = get_stock_context()
     booking_data = {k: session[k] for k in ("name", "service") if k in session}
 
-    system_prompt = f"""You are StorefrontBot, a professional WhatsApp assistant for a business.
+    system_prompt = f"""You are {BUSINESS_NAME}, a professional WhatsApp assistant for a business.
 Help customers with bookings, stock checks, and support.
 
 CURRENT STOCK:
@@ -400,7 +438,7 @@ RULES:
 - Be professional, warm and concise. No emojis at all.
 - Sound like a premium business assistant, not a chatbot.
 - Use [BR] for every line break in your reply.
-- When someone greets you, greet them back warmly and naturally, then ask how you can help. Vary your wording each time. Do NOT show the numbered list on a greeting. Greetings include, in any capitalisation or spelling: hi, hii, hiii, hello, hey, heyy, hey there, hi there, hello there, hallo, hullo, yo, sup, howzit, how zit, heita, hola, good morning, morning, gm, good afternoon, afternoon, good evening, evening, good day, good night, how are you, how are you doing, how is it going, how's it going, how do you do, how r u, how u doing, what's up, wassup, whatsup, greetings, goeie more, goeiemore, goeie middag, goeie naand, goeie dag, hoe gaan dit, hoe gaan dit met jou, and nice to meet you. Match the time of day if they mention it, for example "Good morning, welcome to StorefrontBot. How can I help you today?" If they ask how you are, answer in one short sentence and then ask how you can help.
+- When someone greets you, greet them back warmly and naturally, then ask how you can help. Vary your wording each time. Do NOT show the numbered list on a greeting. Greetings include, in any capitalisation or spelling: hi, hii, hiii, hello, hey, heyy, hey there, hi there, hello there, hallo, hullo, yo, sup, howzit, how zit, heita, hola, good morning, morning, gm, good afternoon, afternoon, good evening, evening, good day, good night, how are you, how are you doing, how is it going, how's it going, how do you do, how r u, how u doing, what's up, wassup, whatsup, greetings, goeie more, goeiemore, goeie middag, goeie naand, goeie dag, hoe gaan dit, hoe gaan dit met jou, and nice to meet you. Match the time of day if they mention it, for example "Good morning, welcome to {BUSINESS_NAME}. How can I help you today?" If they ask how you are, answer in one short sentence and then ask how you can help.
 - If the person says "menu", always show the numbered list.
 - If the person replies with 1, 2 or 3 right after the numbered list, 1 means a booking, 2 means a stock check and 3 means support.
 - Do not repeat the welcome message or the numbered list unless the person greets you, asks for the menu, or sends something unrelated.
