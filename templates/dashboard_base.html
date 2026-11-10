@@ -30,6 +30,8 @@
       font-weight:700;font-size:1.05rem;letter-spacing:-.2px;padding:0 10px 22px;}
     .logo-mark{width:30px;height:30px;border-radius:8px;background:var(--accent);color:#fff;
       display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9rem;}
+    .logo-text{display:flex;flex-direction:column;line-height:1.15;}
+    .logo-tag{font-size:.56rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8;}
     .nav-section{font-size:.68rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
       color:#64748b;padding:14px 10px 6px;}
     .nav-group{display:flex;flex-direction:column;gap:2px;}
@@ -204,8 +206,8 @@
 <!-- SIDEBAR -->
 <aside class="sidebar">
   <a href="/" class="logo">
-    <div class="logo-mark">S</div>
-    {{ site_name }}
+    <img src="/brand/logo-icon.png" alt="" width="34" height="34">
+    <span class="logo-text">{{ site_name }}<span class="logo-tag">Replies while you work</span></span>
   </a>
   <div class="nav-section">Manage</div>
   <nav class="nav-group">

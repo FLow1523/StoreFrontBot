@@ -25,6 +25,8 @@
     .bar{display:flex;align-items:center;justify-content:space-between;min-height:64px;gap:16px;flex-wrap:wrap;}
     .logo{display:flex;align-items:center;gap:10px;font-weight:700;text-decoration:none;letter-spacing:-.2px;}
     .mark{width:30px;height:30px;border-radius:8px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.9rem;}
+    .logo-text{display:flex;flex-direction:column;line-height:1.15;}
+    .logo-tag{font-size:.62rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);}
     nav ul{display:flex;align-items:center;gap:22px;list-style:none;font-size:.9rem;font-weight:500;flex-wrap:wrap;}
     nav a{text-decoration:none;color:var(--muted);}
     nav a:hover{color:var(--text);text-decoration:underline;}
@@ -98,7 +100,7 @@
 
 <header>
   <div class="wrap bar">
-    <a href="/" class="logo"><span class="mark" aria-hidden="true">S</span>{{ site_name }}</a>
+    <a href="/" class="logo"><img src="/brand/logo-icon.png" alt="" width="34" height="34"><span class="logo-text">{{ site_name }}<span class="logo-tag">Replies while you work</span></span></a>
     <nav aria-label="Main">
       <ul>
         <li><a href="#how">How it works</a></li>
