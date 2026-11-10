@@ -1,6 +1,6 @@
 import os
 
-DEFAULT_SITE_NAME = "OnawaBot"
+DEFAULT_SITE_NAME = "NawaBot"
 
 
 def site_name():

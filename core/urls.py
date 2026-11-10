@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.urls import path, include
+from bookings.brand_views import brand_file, favicon
 from bookings.views import (
     dashboard,
     update_booking,
@@ -12,6 +13,8 @@ from bookings.views import (
 )
 
 urlpatterns = [
+    path('favicon.ico', favicon, name='favicon'),
+    path('brand/<str:name>', brand_file, name='brand-file'),
     path('admin/', admin.site.urls),
     path('chatbot/', include('chatbot.urls')),
     path('dashboard/', dashboard, name='dashboard'),
