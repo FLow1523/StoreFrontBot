@@ -5,7 +5,8 @@ import logging
 import os
 import re
 import threading
-import time
+import time 
+from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 
@@ -140,13 +141,20 @@ PROCESSING_ERROR_REPLY = (
 executor = ThreadPoolExecutor(
     max_workers=MAX_BACKGROUND_WORKERS, thread_name_prefix="chatbot"
 )
-_sender_locks = {}
+MAX_SENDER_LOCKS = 2000
+_sender_locks = OrderedDict()
 _sender_locks_guard = threading.Lock()
-
 
 def get_sender_lock(sender):
     with _sender_locks_guard:
-        return _sender_locks.setdefault(sender, threading.Lock())
+        if sender in _sender_locks:
+            _sender_locks.move_to_end(sender)
+            return _sender_locks[sender]
+        lock = threading.Lock()
+        _sender_locks[sender] = lock
+        if len(_sender_locks) > MAX_SENDER_LOCKS:
+            _sender_locks.popitem(last=False)
+        return lock
 
 
 def mask_phone(number):

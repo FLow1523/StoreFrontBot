@@ -4,6 +4,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <link rel="icon" href="/favicon.ico?v=2" sizes="48x48">
   <link rel="icon" type="image/png" sizes="32x32" href="/brand/favicon-32.png?v=2">
   <link rel="icon" type="image/png" sizes="192x192" href="/brand/favicon-192.png?v=2">
@@ -240,31 +243,55 @@
 </main>
 </div>
 
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
-function showToast(msg){
-  const t=document.getElementById('toast');
-  t.textContent=msg;t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'),2500);
-}
+(function(){
+  'use strict';
 
-function getCookie(name){
-  const m=document.cookie.match(new RegExp('(?:^|; )'+name+'=([^;]*)'));
-  return m?decodeURIComponent(m[1]):'';
-}
+  window.showToast = function(msg){
+    const t=document.getElementById('toast');
+    if(!t) return;
+    t.textContent=String(msg||'');
+    t.classList.add('show');
+    setTimeout(()=>t.classList.remove('show'),2500);
+  };
 
-function postJSON(url,body){
-  return fetch(url,{
-    method:'POST',
-    credentials:'same-origin',
-    headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')},
-    body:JSON.stringify(body||{})
-  }).then(r=>r.json()
-    .then(data=>({ok:r.ok,data}))
-    .catch(()=>({ok:false,data:{error:'Unexpected response from the server'}})));
-}
+  window.getCookie = function(name){
+    const m=document.cookie.match(new RegExp('(?:^|; )'+name.replace(/[-.+*]/g,'\\$&')+'=([^;]*)'));
+    return m?decodeURIComponent(m[1]):'';
+  };
 
+  window.postJSON = function(url, body){
+    const csrf = window.getCookie('csrftoken');
+    if(!csrf){
+      return Promise.resolve({ok:false, data:{error:'Session expired. Please refresh the page.'}});
+    }
+    return fetch(url, {
+      method:'POST',
+      credentials:'same-origin',
+      headers:{
+        'Content-Type':'application/json',
+        'Accept':'application/json',
+        'X-CSRFToken':csrf
+      },
+      body:JSON.stringify(body||{})
+    }).then(async function(r){
+      const ct=(r.headers.get('content-type')||'').toLowerCase();
+      if(!ct.includes('application/json')){
+        return {ok:false, data:{error:'Unexpected response from the server'}};
+      }
+      try{
+        const data = await r.json();
+        return {ok:r.ok, data:data};
+      }catch(_){
+        return {ok:false, data:{error:'Unexpected response from the server'}};
+      }
+    }).catch(function(){
+      return {ok:false, data:{error:'Network error. Please try again.'}};
+    });
+  };
+})();
 </script>
 {% block scripts %}{% endblock %}
 </body>

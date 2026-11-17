@@ -1,23 +1,25 @@
-   # Secrets and local configuration
-   .env
-   .env.*
-   !.env.example
-   keys and tokens/
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
 
-   # Databases
-   db.sqlite3
-   *.sqlite3
+# Django
+db.sqlite3
+db.sqlite3-journal
+staticfiles/
+media/
 
-   # Python bytecode and caches
-   __pycache__/
-   *.py[cod]
+# Environment variables (CRITICAL: DO NOT COMMIT THIS)
+.env
+.env.local
 
-   # Virtual environments
-   .venv/
-   venv/
-   env/
+# Virtual Environments
+venv/
+env/
+ENV/
 
-   # Editors and operating system files
-   .vscode/
-   .idea/
-   .DS_Store
+# IDE / OS
+.vscode/
+.idea/
+.DS_Storekeys and tokens/
+.env

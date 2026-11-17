@@ -17,6 +17,8 @@ import dj_database_url
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
+from bookings.branding import site_name
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -31,6 +33,13 @@ def env_bool(name, default=False):
 
 def env_list(name, default=""):
     return [item.strip() for item in os.getenv(name, default).split(",") if item.strip()]
+
+
+def env_int(name, default):
+    try:
+        return int(os.getenv(name, str(default)))
+    except (TypeError, ValueError):
+        return default
 
 
 # ---------------------------------------------------------------------------
@@ -66,17 +75,29 @@ if RENDER_EXTERNAL_HOSTNAME:
     if render_origin not in CSRF_TRUSTED_ORIGINS:
         CSRF_TRUSTED_ORIGINS.append(render_origin)
 
+# ─── Cookie / header / browser security (always on) ────────────────────────
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+X_FRAME_OPTIONS = "DENY"
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = False   # MUST stay False — JS reads the token
+
+# ─── HTTPS-only settings (production only) ─────────────────────────────────
 if not DEBUG:
     # Render's proxy terminates TLS and forwards the original scheme.
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+    # Allow an env override so you can debug behind a proxy if needed.
     SECURE_SSL_REDIRECT = env_bool("DJANGO_SSL_REDIRECT", True)
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
-    # Start with a short HSTS period. Raise it (for example to 31536000)
-    # once you have confirmed HTTPS works everywhere.
-    SECURE_HSTS_SECONDS = int(os.getenv("DJANGO_HSTS_SECONDS", "3600"))
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
-    SECURE_HSTS_PRELOAD = False
+
+    # HSTS: start short (1 hour). Only raise once you've confirmed HTTPS
+    # works for every host and subdomain you serve — HSTS is cached by
+    # browsers and cannot be undone quickly.
+    SECURE_HSTS_SECONDS = env_int("DJANGO_HSTS_SECONDS", 3600)
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool("DJANGO_HSTS_INCLUDE_SUBDOMAINS", False)
+    SECURE_HSTS_PRELOAD = env_bool("DJANGO_HSTS_PRELOAD", False)
 
 
 # ---------------------------------------------------------------------------
@@ -188,9 +209,17 @@ STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 
-# Left unchanged for now. This setting was removed in Django 5.1 and is
-# replaced by STORAGES; it is corrected in the deployment configuration step.
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# STORAGES replaces STATICFILES_STORAGE, which was removed in Django 5.1.
+# The "staticfiles" backend hashes filenames and gzips/brotlis them so
+# WhiteNoise can serve them with far-future cache headers.
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
 
 # ---------------------------------------------------------------------------
@@ -229,11 +258,14 @@ LOGGING = {
 # ---------------------------------------------------------------------------
 
 JAZZMIN_SETTINGS = {
-    "site_title": "StorefrontBot",
-    "site_header": "StorefrontBot",
-    "site_brand": "⚡ StorefrontBot",
-    "welcome_sign": "Welcome to StorefrontBot Admin",
-    "site_logo": None,
+    "site_title": site_name(),
+    "site_header": site_name(),
+    "site_brand": site_name(),
+    "welcome_sign": f"Welcome to {site_name()} Admin",
+    "site_logo": "images/logo-horizontal-small.png",
+    "login_logo": "images/logo-horizontal-small.png",
+    "site_icon": "images/logo-horizontal-small.png",
+    "site_logo_classes": "rounded",
     "show_sidebar": True,
     "navigation_expanded": True,
     "theme": "darkly",

@@ -27,11 +27,11 @@
 
   <!-- TOOLBAR -->
   <div class="toolbar">
-    <input class="search-box" type="text" placeholder="Search bookings by name or number" oninput="filterBookings(this.value)">
-    <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
-    <button class="filter-btn" onclick="setFilter('pending',this)">Pending</button>
-    <button class="filter-btn" onclick="setFilter('confirmed',this)">Confirmed</button>
-    <button class="filter-btn" onclick="setFilter('cancelled',this)">Cancelled</button>
+    <input class="search-box" type="text" placeholder="Search bookings by name or number" autocomplete="off" maxlength="120" oninput="filterBookings(this.value)">
+    <button type="button" class="filter-btn active" onclick="setFilter('all',this)">All</button>
+    <button type="button" class="filter-btn" onclick="setFilter('pending',this)">Pending</button>
+    <button type="button" class="filter-btn" onclick="setFilter('confirmed',this)">Confirmed</button>
+    <button type="button" class="filter-btn" onclick="setFilter('cancelled',this)">Cancelled</button>
   </div>
 
     <!-- BOOKINGS -->
@@ -58,7 +58,7 @@
             {% for booking in bookings %}
             <tr data-id="{{ booking.id }}" data-status="{{ booking.status }}" data-name="{{ booking.name|lower }} {{ booking.phone_digits }}">
               <td><strong>{{ booking.name }}</strong></td>
-              <td>{% if booking.phone_digits %}<a class="phone-link" href="https://wa.me/{{ booking.phone_digits }}" target="_blank" rel="noopener noreferrer" title="Open a WhatsApp chat">{{ booking.display_phone }}</a>{% else %}<span class="muted">-</span>{% endif %}</td>
+              <td>{% if booking.phone_digits %}<a class="phone-link" href="https://wa.me/{{ booking.phone_digits|urlencode }}" target="_blank" rel="noopener noreferrer" title="Open a WhatsApp chat">{{ booking.display_phone }}</a>{% else %}<span class="muted">-</span>{% endif %}</td>
               <td>{{ booking.date }}</td>
               <td>{{ booking.time }}</td>
               <td>{{ booking.service }}</td>
@@ -69,8 +69,8 @@
               </td>
               <td>
                 <div class="actions">
-                  <button class="act-btn act-confirm" onclick="updateBooking({{ booking.id }},'confirmed')">Confirm</button>
-                  <button class="act-btn act-cancel" onclick="updateBooking({{ booking.id }},'cancelled')">Cancel</button>
+                  <button type="button" class="act-btn act-confirm" onclick="updateBooking({{ booking.id }},'confirmed')">Confirm</button>
+                  <button type="button" class="act-btn act-cancel" onclick="updateBooking({{ booking.id }},'cancelled')">Cancel</button>
                 </div>
               </td>
             </tr>
@@ -93,11 +93,11 @@
     <div class="slot-form">
       <div class="slot-field">
         <label for="slot-date">Date</label>
-        <input type="date" id="slot-date">
+        <input type="date" id="slot-date" required>
       </div>
       <div class="slot-field">
         <label for="slot-start">First time</label>
-        <input type="time" id="slot-start">
+        <input type="time" id="slot-start" required>
       </div>
       <div class="slot-field">
         <label for="slot-end">Last time (optional)</label>
@@ -105,9 +105,9 @@
       </div>
       <div class="slot-field">
         <label for="slot-interval">Every (minutes)</label>
-        <input type="number" id="slot-interval" value="60" min="5" max="480" step="5">
+        <input type="number" id="slot-interval" value="60" min="5" max="480" step="5" required>
       </div>
-      <button class="btn btn-solid" id="slot-add-btn" onclick="addSlots()">+ Add slots</button>
+      <button type="button" class="btn btn-solid" id="slot-add-btn" onclick="addSlots()">+ Add slots</button>
     </div>
     <div class="slot-hint">Leave "Last time" empty to add a single slot. Otherwise slots are created from the first time to the last time at the interval you choose. Customers can only book the times listed here.</div>
     {% if slots %}
@@ -125,7 +125,7 @@
           <span class="status s-booked">Booked</span>
           {% else %}
           <span class="status s-open">Open</span>
-          <button class="act-btn act-cancel" onclick="deleteSlot({{ s.id }})">Remove</button>
+          <button type="button" class="act-btn act-cancel" onclick="deleteSlot({{ s.id }})">Remove</button>
           {% endif %}
         </div>
       </div>
@@ -139,59 +139,90 @@
 
 {% block scripts %}
 <script>
-function updateBooking(id,status){
-  postJSON(`/dashboard/booking/${id}/update/`,{status}).then(({ok,data})=>{
-    if(!ok||!data.success){showToast(''+(data.error||'Could not update the booking'));return;}
-    const el=document.getElementById(`status-${id}`);
-    el.textContent=data.status;
-    el.className=`status s-${data.status}`;
-    document.querySelector(`tr[data-id="${id}"]`).dataset.status=data.status;
-    showToast(`Booking ${data.status}!`);
-    if(data.slot_changed){setTimeout(()=>location.reload(),900);}
-  });
-}
+(function(){
+  'use strict';
 
-function addSlots(){
-  const body={
-    date:document.getElementById('slot-date').value,
-    start_time:document.getElementById('slot-start').value,
-    end_time:document.getElementById('slot-end').value,
-    interval_minutes:document.getElementById('slot-interval').value
+  const ALLOWED_STATUSES = ['pending','confirmed','cancelled'];
+
+  window.updateBooking = function(id, status){
+    id = parseInt(id, 10);
+    if(!Number.isInteger(id) || id <= 0){ showToast('Invalid booking'); return; }
+    if(!ALLOWED_STATUSES.includes(status)){ showToast('Invalid status'); return; }
+
+    postJSON(`/dashboard/booking/${id}/update/`, {status:status}).then(function(result){
+      const ok = result.ok, data = result.data || {};
+      if(!ok || !data.success){
+        showToast(String(data.error || 'Could not update the booking'));
+        return;
+      }
+      const safeStatus = ALLOWED_STATUSES.includes(data.status) ? data.status : 'pending';
+      const el = document.getElementById(`status-${id}`);
+      if(el){
+        el.textContent = safeStatus;
+        el.className = `status s-${safeStatus}`;
+      }
+      const row = document.querySelector(`tr[data-id="${id}"]`);
+      if(row){ row.dataset.status = safeStatus; }
+      showToast(`Booking ${safeStatus}!`);
+      if(data.slot_changed){ setTimeout(()=>location.reload(), 900); }
+    });
   };
-  if(!body.date||!body.start_time){showToast('Pick a date and a first time');return;}
-  const btn=document.getElementById('slot-add-btn');
-  btn.disabled=true;
-  postJSON('/dashboard/slots/add/',body).then(({ok,data})=>{
-    btn.disabled=false;
-    if(!ok||!data.success){showToast(''+(data.error||'Could not add slots'));return;}
-    let msg=`${data.created} slot(s) added`;
-    if(data.existing){msg+=`, ${data.existing} already existed`;}
-    if(data.past){msg+=`, ${data.past} in the past skipped`;}
-    showToast(msg);
-    setTimeout(()=>location.reload(),1200);
-  });
-}
 
-function deleteSlot(id){
-  postJSON(`/dashboard/slots/${id}/delete/`).then(({ok,data})=>{
-    if(!ok||!data.success){showToast(''+(data.error||'Could not remove the slot'));return;}
-    showToast('Slot removed');
-    setTimeout(()=>location.reload(),700);
-  });
-}
+  window.addSlots = function(){
+    const body = {
+      date: document.getElementById('slot-date').value,
+      start_time: document.getElementById('slot-start').value,
+      end_time: document.getElementById('slot-end').value,
+      interval_minutes: document.getElementById('slot-interval').value
+    };
+    if(!body.date || !body.start_time){ showToast('Pick a date and a first time'); return; }
+    const btn = document.getElementById('slot-add-btn');
+    btn.disabled = true;
+    postJSON('/dashboard/slots/add/', body).then(function(result){
+      btn.disabled = false;
+      const ok = result.ok, data = result.data || {};
+      if(!ok || !data.success){
+        showToast(String(data.error || 'Could not add slots'));
+        return;
+      }
+      let msg = `${Number(data.created)||0} slot(s) added`;
+      if(data.existing){ msg += `, ${Number(data.existing)||0} already existed`; }
+      if(data.past){ msg += `, ${Number(data.past)||0} in the past skipped`; }
+      showToast(msg);
+      setTimeout(()=>location.reload(), 1200);
+    });
+  };
 
-function filterBookings(q){
-  document.querySelectorAll('#bookings-table tr').forEach(r=>{
-    r.style.display=r.dataset.name.includes(q.toLowerCase())?'':'none';
-  });
-}
+  window.deleteSlot = function(id){
+    id = parseInt(id, 10);
+    if(!Number.isInteger(id) || id <= 0){ showToast('Invalid slot'); return; }
+    postJSON(`/dashboard/slots/${id}/delete/`).then(function(result){
+      const ok = result.ok, data = result.data || {};
+      if(!ok || !data.success){
+        showToast(String(data.error || 'Could not remove the slot'));
+        return;
+      }
+      showToast('Slot removed');
+      setTimeout(()=>location.reload(), 700);
+    });
+  };
 
-function setFilter(status,btn){
-  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  document.querySelectorAll('#bookings-table tr').forEach(r=>{
-    r.style.display=(status==='all'||r.dataset.status===status)?'':'none';
-  });
-}
+  window.filterBookings = function(q){
+    const query = String(q||'').toLowerCase().trim();
+    document.querySelectorAll('#bookings-table tr').forEach(function(r){
+      const name = r.dataset.name || '';
+      r.style.display = name.includes(query) ? '' : 'none';
+    });
+  };
+
+  window.setFilter = function(status, btn){
+    if(!ALLOWED_STATUSES.includes(status) && status !== 'all'){ return; }
+    document.querySelectorAll('.filter-btn').forEach(function(b){ b.classList.remove('active'); });
+    if(btn){ btn.classList.add('active'); }
+    document.querySelectorAll('#bookings-table tr').forEach(function(r){
+      r.style.display = (status==='all' || r.dataset.status===status) ? '' : 'none';
+    });
+  };
+})();
 </script>
 {% endblock %}

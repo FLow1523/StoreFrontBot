@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 # Adjust this set if your dashboard uses other status values.
 VALID_BOOKING_STATUSES = {"pending", "confirmed", "cancelled", "completed"}
 MAX_STOCK_QUANTITY = 1_000_000
+MAX_BOOKINGS_ON_DASHBOARD = 1000
 
 # Time slot limits
 MAX_SLOTS_PER_REQUEST = 48
@@ -100,19 +101,23 @@ def apply_booking_status(booking, status):
     """
     slot_changed = False
     with transaction.atomic():
-        if booking.slot_id and status != booking.status:
+        # Lock the row so two staff acting on the same booking cannot
+        # interleave and leave the slot and status out of step.
+        locked = Booking.objects.select_for_update().get(pk=booking.pk)
+        if locked.slot_id and status != locked.status:
             if status == "cancelled":
-                TimeSlot.objects.filter(pk=booking.slot_id).update(is_booked=False)
+                TimeSlot.objects.filter(pk=locked.slot_id).update(is_booked=False)
                 slot_changed = True
-            elif booking.status == "cancelled":
+            elif locked.status == "cancelled":
                 claimed = TimeSlot.objects.filter(
-                    pk=booking.slot_id, is_booked=False
+                    pk=locked.slot_id, is_booked=False
                 ).update(is_booked=True)
                 if not claimed:
                     return False, False
                 slot_changed = True
-        booking.status = status
-        booking.save(update_fields=["status"])
+        locked.status = status
+        locked.save(update_fields=["status"])
+        booking.status = locked.status
     return True, slot_changed
 
 
@@ -130,10 +135,19 @@ def landing(request):
 @staff_member_required
 @ensure_csrf_cookie
 def dashboard(request):
-    bookings = Booking.objects.all().order_by('-created_at')
-    total_bookings = bookings.count()
-    pending = bookings.filter(status='pending').count()
-    confirmed = bookings.filter(status='confirmed').count()
+    qs = Booking.objects.all()
+    # Counts are cheap; the list itself is capped so a growing booking
+    # table can't drag the dashboard down.
+    total_bookings = qs.count()
+    pending = qs.filter(status='pending').count()
+    confirmed = qs.filter(status='confirmed').count()
+    bookings = (
+        qs.order_by('-created_at')
+        .only(
+            "id", "name", "phone_number", "date", "time",
+            "service", "status", "created_at",
+        )[:MAX_BOOKINGS_ON_DASHBOARD]
+    )
     now = timezone.now()
     slots = (
         TimeSlot.objects.filter(start__gte=now)

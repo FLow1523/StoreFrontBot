@@ -7,7 +7,7 @@
 {% block content %}
   <div class="range">
     {% for r in ranges %}
-    <a class="filter-btn{% if r == days %} active{% endif %}" href="?days={{ r }}">Last {{ r }} days</a>
+    <a class="filter-btn{% if r == days %} active{% endif %}" href="?days={{ r|urlencode }}">Last {{ r }} days</a>
     {% endfor %}
   </div>
 

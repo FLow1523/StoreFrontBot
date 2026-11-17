@@ -1,11 +1,14 @@
 import os
+import logging
 
 from django.http import HttpResponse
 from django.utils.html import escape
 
+logger = logging.getLogger(__name__)
+
 # Optional: set these in Render > Environment to personalise the pages.
-BUSINESS_NAME = os.getenv("BUSINESS_NAME", "StorefrontBot")
-CONTACT_EMAIL = os.getenv("PRIVACY_CONTACT_EMAIL", "contact@example.com")
+BUSINESS_NAME = os.getenv("BUSINESS_NAME", "NawaBot")
+CONTACT_EMAIL = os.getenv("PRIVACY_CONTACT_EMAIL", "onawabot@gmail.com")
 LAST_UPDATED = "7 November 2026"
 
 PAGE_STYLE = """
@@ -15,7 +18,6 @@ h1 { font-size: 1.8rem; margin-bottom: 0.2rem; }
 h2 { font-size: 1.2rem; margin-top: 2rem; }
 p.meta { color: #666; margin-top: 0; }
 """
-
 
 def render_page(title, body_html):
     html = (
@@ -29,6 +31,8 @@ def render_page(title, body_html):
         "</body></html>"
     )
     return HttpResponse(html, content_type="text/html; charset=utf-8")
+
+
 
 
 def privacy_policy(request):

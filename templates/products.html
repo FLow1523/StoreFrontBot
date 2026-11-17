@@ -27,10 +27,10 @@
 
   <!-- TOOLBAR -->
   <div class="toolbar">
-    <input class="search-box" type="text" placeholder="Search products by name" oninput="searchProducts(this.value)">
-    <button class="filter-btn active" onclick="setProductFilter('all',this)">All</button>
-    <button class="filter-btn" onclick="setProductFilter('in',this)">In stock</button>
-    <button class="filter-btn" onclick="setProductFilter('out',this)">Out of stock</button>
+    <input class="search-box" type="text" placeholder="Search products by name" autocomplete="off" maxlength="120" oninput="searchProducts(this.value)">
+    <button type="button" class="filter-btn active" onclick="setProductFilter('all',this)">All</button>
+    <button type="button" class="filter-btn" onclick="setProductFilter('in',this)">In stock</button>
+    <button type="button" class="filter-btn" onclick="setProductFilter('out',this)">Out of stock</button>
   </div>
 
   <!-- PRODUCTS -->
@@ -47,9 +47,9 @@
           <div class="stock-price">N${{ p.price }}</div>
         </div>
         <div class="stock-controls">
-          <button class="qty-btn" onclick="updateStock({{ p.id }},-1)">−</button>
+          <button type="button" class="qty-btn" onclick="updateStock({{ p.id }},-1)">−</button>
           <span class="qty-num" id="qty-{{ p.id }}">{{ p.quantity }}</span>
-          <button class="qty-btn" onclick="updateStock({{ p.id }},1)">+</button>
+          <button type="button" class="qty-btn" onclick="updateStock({{ p.id }},1)">+</button>
           <span class="stock-badge {% if p.quantity > 0 %}in-stock{% else %}out-stock{% endif %}" id="badge-{{ p.id }}">
             {% if p.quantity > 0 %}In Stock{% else %}Out{% endif %}
           </span>
@@ -64,51 +64,77 @@
 
 {% block scripts %}
 <script>
-let productFilter='all';
-let productQuery='';
+(function(){
+  'use strict';
 
-function applyProductFilters(){
-  document.querySelectorAll('.stock-item').forEach(el=>{
-    const matchesName=el.dataset.name.includes(productQuery);
-    const matchesStock=productFilter==='all'||el.dataset.stock===productFilter;
-    el.style.display=(matchesName&&matchesStock)?'':'none';
-  });
-}
+  let productFilter = 'all';
+  let productQuery = '';
 
-function searchProducts(q){
-  productQuery=q.trim().toLowerCase();
-  applyProductFilters();
-}
+  function applyProductFilters(){
+    document.querySelectorAll('.stock-item').forEach(function(el){
+      const matchesName = (el.dataset.name || '').includes(productQuery);
+      const matchesStock = productFilter==='all' || el.dataset.stock===productFilter;
+      el.style.display = (matchesName && matchesStock) ? '' : 'none';
+    });
+  }
 
-function setProductFilter(filter,btn){
-  productFilter=filter;
-  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  applyProductFilters();
-}
-
-function refreshProductStats(){
-  const total=document.querySelectorAll('.stock-item').length;
-  const inStock=document.querySelectorAll('.stock-item[data-stock="in"]').length;
-  document.getElementById('stat-total').textContent=total;
-  document.getElementById('stat-in').textContent=inStock;
-  document.getElementById('stat-out').textContent=total-inStock;
-}
-
-function updateStock(id,change){
-  const el=document.getElementById(`qty-${id}`);
-  const newQty=Math.max(0,parseInt(el.textContent)+change);
-  postJSON(`/dashboard/stock/${id}/update/`,{quantity:newQty}).then(({ok,data})=>{
-    if(!ok||!data.success){showToast(''+(data.error||'Could not update stock'));return;}
-    el.textContent=data.quantity;
-    const b=document.getElementById(`badge-${id}`);
-    b.textContent=data.quantity>0?'In Stock':'Out';
-    b.className=`stock-badge ${data.quantity>0?'in-stock':'out-stock'}`;
-    el.closest('.stock-item').dataset.stock=data.quantity>0?'in':'out';
-    refreshProductStats();
+  window.searchProducts = function(q){
+    productQuery = String(q||'').trim().toLowerCase();
     applyProductFilters();
-    showToast('Stock updated!');
-  });
-}
+  };
+
+  window.setProductFilter = function(filter, btn){
+    if(!['all','in','out'].includes(filter)){ return; }
+    productFilter = filter;
+    document.querySelectorAll('.filter-btn').forEach(function(b){ b.classList.remove('active'); });
+    if(btn){ btn.classList.add('active'); }
+    applyProductFilters();
+  };
+
+  function refreshProductStats(){
+    const total = document.querySelectorAll('.stock-item').length;
+    const inStock = document.querySelectorAll('.stock-item[data-stock="in"]').length;
+    const totalEl = document.getElementById('stat-total');
+    const inEl = document.getElementById('stat-in');
+    const outEl = document.getElementById('stat-out');
+    if(totalEl) totalEl.textContent = total;
+    if(inEl) inEl.textContent = inStock;
+    if(outEl) outEl.textContent = total - inStock;
+  }
+
+  window.updateStock = function(id, change){
+    id = parseInt(id, 10);
+    change = parseInt(change, 10);
+    if(!Number.isInteger(id) || id <= 0){ showToast('Invalid product'); return; }
+    if(!Number.isInteger(change) || Math.abs(change) > 1000){ showToast('Invalid change'); return; }
+
+    const el = document.getElementById(`qty-${id}`);
+    if(!el){ showToast('Product not found'); return; }
+    const current = parseInt(el.textContent, 10);
+    if(!Number.isInteger(current)){ showToast('Invalid current quantity'); return; }
+    const newQty = Math.max(0, current + change);
+
+    postJSON(`/dashboard/stock/${id}/update/`, {quantity:newQty}).then(function(result){
+      const ok = result.ok, data = result.data || {};
+      if(!ok || !data.success){
+        showToast(String(data.error || 'Could not update stock'));
+        return;
+      }
+      const qty = parseInt(data.quantity, 10);
+      if(!Number.isInteger(qty) || qty < 0){ showToast('Invalid response'); return; }
+      el.textContent = qty;
+      const b = document.getElementById(`badge-${id}`);
+      if(b){
+        b.textContent = qty > 0 ? 'In Stock' : 'Out';
+        b.className = `stock-badge ${qty > 0 ? 'in-stock' : 'out-stock'}`;
+      }
+      const item = el.closest('.stock-item');
+      if(item){ item.dataset.stock = qty > 0 ? 'in' : 'out'; }
+      refreshProductStats();
+      applyProductFilters();
+      showToast('Stock updated!');
+    });
+  };
+})();
 </script>
 {% endblock %}
