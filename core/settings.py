@@ -17,7 +17,7 @@ import dj_database_url
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
-from bookings.branding import site_name
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -217,7 +217,7 @@ STORAGES = {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
     },
 }
 
@@ -258,10 +258,10 @@ LOGGING = {
 # ---------------------------------------------------------------------------
 
 JAZZMIN_SETTINGS = {
-    "site_title": site_name(),
-    "site_header": site_name(),
-    "site_brand": site_name(),
-    "welcome_sign": f"Welcome to {site_name()} Admin",
+    "site_title": "NawaBot Admin",
+    "site_header": "NawaBot Admin",
+    "site_brand": "⚡ NawaBot Admin",
+    "welcome_sign": "Welcome to NawaBot Admin",
     "site_logo": None,
     "show_sidebar": True,
     "navigation_expanded": True,
