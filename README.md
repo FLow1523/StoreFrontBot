@@ -108,7 +108,6 @@ Procfile               Railway/Heroku process definition
 Roadmap
 
 
- Migrate from Twilio to Meta's official WhatsApp Business API
  Complete daily booking reminder system via APScheduler
  Self-service business onboarding flow
  Analytics dashboard for business owners
