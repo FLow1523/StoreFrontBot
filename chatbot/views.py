@@ -5,14 +5,15 @@ import logging
 import os
 import re
 import threading
-import time 
+import time
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
+from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
 from django.db import IntegrityError, close_old_connections, transaction
-from django.http import JsonResponse, HttpResponse
+from django.http import HttpResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from groq import Groq
@@ -23,7 +24,7 @@ from twilio.rest import Client as TwilioClient
 from bookings.branding import site_name
 from bookings.models import Booking, ChatSession, TimeSlot
 from inventory.models import Product
-from .models import ProcessedMessage
+from .models import ProcessedMessage, SupportRequest
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,7 @@ GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 SESSION_FLOW_MINUTES = 60
 SESSION_HISTORY_HOURS = 24
 SESSION_RETENTION_DAYS = 2
-FLOW_STEPS = ("choose_slot", "cancel_choose", "cancel_confirm")
+FLOW_STEPS = ("choose_slot", "cancel_choose", "cancel_confirm", "support_choose", "support_message")
 
 # Network and processing limits
 GROQ_TIMEOUT_SECONDS = 20
@@ -71,6 +72,11 @@ SERVICE_PRICES = {
     "Follow-up": "N$250",
     "Other": "Price on request",
 }
+SERVICE_DETAILS = {
+    "Consultation": "a 1-hour session with our team",
+    "Follow-up": "a 30-minute check-in on previous work",
+    "Other": "tell us what you need and we will get back to you",
+}
 
 # Owner-published time slots
 MAX_SLOTS_SHOWN = 10
@@ -82,22 +88,34 @@ TIME_FORMAT = "%H:%M"
 SLOT_EXIT_WORDS = {"0", "cancel", "back", "exit", "menu"}
 
 BOOKING_REJECTED_REPLY = (
-    "I was unable to continue your booking with the details provided. "
-    "Please confirm your name and the service you would like."
+    "Sorry, I could not complete that. "
+    "Please tell me which service you want and your name."
 )
 NO_SLOTS_REPLY = (
-    "There are no available times at the moment. Please check again soon."
+    "There are no free times right now. Please check again soon."
 )
 SERVICES_REPLY = (
-    "Our services:\n\n"
-    "Consultation - N$500\nA 1-hour session with our team.\n\n"
-    "Follow-up - N$250\nA 30-minute check-in on previous work.\n\n"
-    "Other - Price on request\nTell us what you need and we will get back to you.\n\n"
-    "Which service would you like to book?"
+    "Sure. Which service would you like?\n\n"
+    "Consultation - N$500 (1 hour)\n"
+    "Follow-up - N$250 (30 minutes)\n"
+    "Other - price on request"
 )
-SUPPORT_REPLY = (
-    "Please tell me what you need help with. "
-    f"Our business hours are {BUSINESS_HOURS}, in {BUSINESS_LOCATION}."
+SUPPORT_INTENT = re.compile(
+    r"\b(support|customer (?:service|care)|human|real person|representative|complaint)\b"
+    r"|\b(?:speak|talk|chat)\s+(?:to|with)\s+(?:someone|somebody|a person|staff)\b",
+    re.I,
+)
+SUPPORT_EXIT_WORDS = {"0", "back", "exit", "menu", "cancel"}
+SUPPORT_OPTIONS_REPLY = (
+    "Sure. How would you like to reach our team?\n\n"
+    "1. Leave a message\n"
+    "2. Contact details\n"
+    "3. Business hours\n\n"
+    "Reply with a number, or just type your message. Reply 0 to go back."
+)
+SUPPORT_ASK_REPLY = "Please type your message and I will pass it to our team. Reply 0 to go back."
+SUPPORT_SAVED_REPLY = (
+    f"Thank you. Our team will reply during business hours ({BUSINESS_HOURS})."
 )
 CANCEL_INTENT = re.compile(r"\bcancel\w*\b", re.I)
 CANCEL_EXCLUDE = re.compile(r"\b(polic(?:y|ies)|fees?|charges?|refunds?|penalt(?:y|ies))\b", re.I)
@@ -109,15 +127,25 @@ CANCEL_NONE_REPLY = (
     "I could not find any upcoming bookings for this number. "
     "If you booked with a different number, please contact us during business hours."
 )
-CANCEL_KEEP_REPLY = "Okay, your booking has not been changed. How else can I help?"
+CANCEL_KEEP_REPLY = "Okay, I have left your booking as it is."
 CANCEL_FAILED_REPLY = (
     "That booking could not be cancelled. It may already have been cancelled, or its time has passed."
 )
 MENU_MARKER = "1. Make a booking"  # present in every reply that shows the numbered menu
+MENU_OPTIONS = (
+    "1. Make a booking\n2. Check stock availability\n3. Speak to support\n\n"
+    "Reply with a number or just tell me what you need."
+)
+MENU_LIST = "I can help with:\n\n" + MENU_OPTIONS
+MENU_REPLY = "How can I help you?\n\n" + MENU_OPTIONS
+MENU_WORDS = {"menu", "help", "options"}
+# Strips a numbered menu (and its intro line) that the model tacked onto an answer.
+MENU_TAIL = re.compile(
+    r"(?:[^\n]*help (?:you )?with[^\n]*:\s*)?1\.\s*Make a booking.*\Z", re.S | re.I
+)
 MAX_STOCK_LINES = 30
 FALLBACK_REPLY = (
-    "Sorry, I did not quite catch that. "
-    "Could you tell me what you need, for example a booking or a stock check?"
+    "Sorry, I did not catch that. Could you say it another way?"
 )
 # A clear request to book, with no service named yet, is answered in code.
 BOOKING_INTENT = re.compile(
@@ -128,9 +156,7 @@ BOOKING_INTENT_EXCLUDE = re.compile(
 )
 
 BOOKING_CANCELLED_REPLY = (
-    "Your booking request has been cancelled.\n\n"
-    "How can I help you?\n\n"
-    "1. Make a booking\n2. Check stock availability\n3. Speak to support"
+    "Okay, I have cancelled that request. Let me know if you need anything else."
 )
 PROCESSING_ERROR_REPLY = (
     "Sorry, I am unable to process your request right now. Please try again."
@@ -181,6 +207,17 @@ def clean_text(value, max_length):
     if not cleaned or len(cleaned) > max_length:
         return None
     return cleaned
+
+
+def money(value):
+    """N$10,000 for whole amounts, N$259.50 otherwise."""
+    try:
+        amount = Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        return f"N${value}"
+    if amount == amount.to_integral_value():
+        return f"N${int(amount):,}"
+    return f"N${amount:,.2f}"
 
 
 def validate_details(booking_data):
@@ -268,10 +305,9 @@ def build_booking_confirmation(booking):
         f"Date: {booking.date}",
         f"Time: {booking.time}",
         f"Location: {BUSINESS_LOCATION}",
-        f"Hours: {BUSINESS_HOURS}",
         "",
-        'To cancel this booking, send "cancel my booking" at any time. To change the time, cancel it and book a new one.',
-        f"Thank you for choosing {BUSINESS_NAME}.",
+        'To cancel, send "cancel my booking".',
+        "See you then.",
     ]
     return "\n".join(lines)
 
@@ -402,13 +438,13 @@ def send_template_message(to, content_sid, variables):
 
 
 def get_stock_context():
-    products = Product.objects.all()
+    products = Product.objects.all().order_by("name")[:MAX_STOCK_LINES]
     if not products:
-        return "No products currently in stock."
+        return "No products listed."
     lines = []
     for p in products:
-        status = "in stock" if p.quantity > 0 else "out of stock"
-        lines.append(f"- {p.name}: N${p.price}, {p.quantity} units, {status}")
+        status = f"{p.quantity} in stock" if p.quantity > 0 else "out of stock"
+        lines.append(f"- {p.name}: {money(p.price)}, {status}")
     return "\n".join(lines)
 
 
@@ -422,46 +458,44 @@ def ask_groq(user_message, session):
     client = Groq(api_key=GROQ_API_KEY, timeout=GROQ_TIMEOUT_SECONDS, max_retries=1)
     stock_info = get_stock_context()
     booking_data = {k: session[k] for k in ("name", "service") if k in session}
+    services_info = "\n".join(
+        f"- {name}: {price} ({SERVICE_DETAILS[name]})" if name in SERVICE_DETAILS else f"- {name}: {price}"
+        for name, price in SERVICE_PRICES.items()
+    )
+    services_text = SERVICES_REPLY.replace("\n", "[BR]")
 
-    system_prompt = f"""You are {BUSINESS_NAME}, a professional WhatsApp assistant for a business.
-Help customers with bookings, stock checks, and support.
+    system_prompt = f"""You are a front-desk employee at {BUSINESS_NAME}, chatting with customers on WhatsApp. Talk the way a friendly, efficient shop assistant would at the help desk: natural, polite and brief.
 
-CURRENT STOCK:
+WHAT YOU KNOW (this is all you know about the business):
+Location: {BUSINESS_LOCATION}
+Hours: {BUSINESS_HOURS}
+Services:
+{services_info}
+Stock right now:
 {stock_info}
-
-BUSINESS LOCATION: Windhoek, Namibia
-BUSINESS HOURS: Monday to Friday, 8am to 5pm
 
 BOOKING IN PROGRESS: {json.dumps(booking_data) if booking_data else "None"}
 
-You must respond with a JSON object only — no other text, no markdown, no backticks.
-Use [BR] for line breaks inside the reply string. Never use actual newlines inside JSON strings.
+Respond with a JSON object only. No other text, no markdown, no backticks.
+Use [BR] for line breaks inside the reply. Never use real newlines inside JSON strings.
 
 Format:
-{{"reply": "your message with [BR] for line breaks", "action": "none", "booking_data": {{"name": null, "service": null}}}}
+{{"reply": "your short reply", "action": "none", "show_menu": false, "booking_data": {{"name": null, "service": null}}}}
 
-The action is either "none" or "show_slots".
+action is "none" or "show_slots". show_menu is true or false.
 
-RULES:
-- Be professional, warm and concise. No emojis at all.
-- Sound like a premium business assistant, not a chatbot.
-- Use [BR] for every line break in your reply.
-- When someone greets you, greet them back warmly and naturally, then ask how you can help. Vary your wording each time. Do NOT show the numbered list on a greeting. Greetings include, in any capitalisation or spelling: hi, hii, hiii, hello, hey, heyy, hey there, hi there, hello there, hallo, hullo, yo, sup, howzit, how zit, heita, hola, good morning, morning, gm, good afternoon, afternoon, good evening, evening, good day, good night, how are you, how are you doing, how is it going, how's it going, how do you do, how r u, how u doing, what's up, wassup, whatsup, greetings, goeie more, goeiemore, goeie middag, goeie naand, goeie dag, hoe gaan dit, hoe gaan dit met jou, and nice to meet you. Match the time of day if they mention it, for example "Good morning, welcome to {BUSINESS_NAME}. How can I help you today?" If they ask how you are, answer in one short sentence and then ask how you can help.
-- If the person says "menu", always show the numbered list.
-- If the person replies with 1, 2 or 3 right after the numbered list, 1 means a booking, 2 means a stock check and 3 means support.
-- Do not repeat the welcome message or the numbered list unless the person greets you, asks for the menu, or sends something unrelated.
-- If someone wants to change or reschedule a booking, tell them to send "cancel my booking" first and then book a new time. Customers cancel their own bookings that way; never say you have cancelled a booking yourself.
-- When someone wants to book or says "1", reply with: "Our services:[BR][BR]Consultation - N$500[BR]A 1-hour session with our team.[BR][BR]Follow-up - N$250[BR]A 30-minute check-in on previous work.[BR][BR]Other - Price on request[BR]Tell us what you need and we will get back to you.[BR][BR]Which service would you like to book?"
-- After they choose a service, ask for their name. Do not ask for a date or time, and never suggest or invent times. The system shows the available times itself.
-- As soon as you have both the service and the name, set action to "show_slots" and put the name and service in booking_data. The system replaces the reply for that turn, so keep it to one short sentence. Never say a booking is confirmed; only the system confirms bookings.
-- For stock questions, list each product with name, price and availability
-- If booking info is incomplete, ask for only the missing piece (the service or the name)
-- Never make up services or prices not listed above
-- If someone asks where we are located say: Windhoek, Namibia. Monday to Friday, 8am to 5pm.
-- If their message is not about bookings, stock, support, our location or our hours, reply with one short, friendly sentence, then show this list: "I can help with the following:[BR][BR]1. Make a booking[BR]2. Check stock availability[BR]3. Speak to support[BR][BR]Reply with a number or just tell me what you need."
-- You ONLY answer questions related to this business. If someone asks anything unrelated (general knowledge, math, news, personal questions, other businesses), do not answer it. Say you can only help with business enquiries, then show the numbered list as above.
-- Never answer questions about politics, celebrities, history, science, sports, or any topic not related to this business.
-- Keep small talk to one short sentence (for example, replying to "how are you"), then steer back to how you can help."""
+HOW TO REPLY:
+- Answer exactly what was asked and nothing more. One short sentence is best, never more than two. Use a list only when the customer asks for everything (all stock, all services).
+- No filler. Do not say "Certainly", "Of course" or "I would be happy to", and do not repeat the question back. No emojis. Do not end with offers of more help.
+- Question about one item's price or stock: give that item's price and units, for example "Yes, we have 4 laptops at N$10,000 each." If it is not in the stock list, say so plainly, for example "Sorry, we do not stock iPhones. We have keyboards and laptops."
+- Questions about services, prices, hours or location: answer from WHAT YOU KNOW.
+- If a business question needs information you do not have (delivery, payment methods, discounts and so on), say you are not sure and offer to pass it on, for example "I am not sure about that. Reply support to leave a message for our team." Never guess or invent anything.
+- Greeting: greet back in one short sentence and ask how you can help, for example "Good morning, welcome to {BUSINESS_NAME}. How can I help?" Thanks or goodbye: one short polite sentence.
+- Booking: when someone wants to book, reply with: "{services_text}". After they pick a service, ask for their name in one short sentence. Never ask for a date or time and never suggest times; the system shows the free times itself. When you have both the service and the name, set action to "show_slots", fill in booking_data and keep the reply to a few words. Never say a booking is confirmed; only the system does that.
+- Changing a booking: tell them to send "cancel my booking" first and then book a new time. Never say you cancelled anything yourself.
+- You only deal with this business: stock, prices, services, bookings, hours, location and support. If the message is about anything else (general knowledge, maths, news, politics, sport, celebrities, jokes, advice, other businesses, coding, translation), do not answer it. Say in one short sentence that you can only help with questions about the business, and set show_menu to true. Set show_menu to true ONLY in this case.
+- If the message is unclear, ask one short question to clarify. show_menu stays false.
+- NEVER write the numbered menu yourself and never say "I can also help you with". The system adds the menu when show_menu is true."""
 
     history = session.get("history", [])
     messages = [{"role": "system", "content": system_prompt}]
@@ -471,7 +505,7 @@ RULES:
     request_kwargs = {
         "model": GROQ_MODEL,
         "messages": messages,
-        "temperature": 0.7,
+        "temperature": 0.3,
         "max_tokens": 1500,
     }
     if GROQ_MODEL.startswith("openai/gpt-oss"):
@@ -497,6 +531,7 @@ RULES:
     return {
         "reply": FALLBACK_REPLY,
         "action": "none",
+        "show_menu": False,
         "booking_data": {"name": None, "service": None},
     }
 
@@ -674,12 +709,11 @@ def build_stock_reply():
     lines = ["Current stock:", ""]
     for product in products[:MAX_STOCK_LINES]:
         if product.quantity > 0:
-            lines.append(f"{product.name} - N${product.price} - {product.quantity} in stock")
+            lines.append(f"{product.name} - {money(product.price)} - {product.quantity} in stock")
         else:
-            lines.append(f"{product.name} - N${product.price} - out of stock")
+            lines.append(f"{product.name} - {money(product.price)} - out of stock")
     if len(products) > MAX_STOCK_LINES:
         lines.append("...and more. Ask me about a specific product.")
-    lines += ["", "Would you like to make a booking or ask about something else?"]
     return "\n".join(lines)
 
 
@@ -746,7 +780,7 @@ def present_slots(session, header="Available times:"):
     lines = [header, ""]
     for number, slot in enumerate(slots, start=1):
         lines.append(f"{number}. {format_slot(slot.start)}")
-    lines += ["", "Reply with the number of the time you would like, or 0 to cancel."]
+    lines += ["", "Reply with a number, or 0 to cancel."]
     return "\n".join(lines)
 
 
@@ -756,7 +790,7 @@ def handle_slot_choice(from_number, session, text):
 
     if choice in SLOT_EXIT_WORDS:
         reset_booking_state(session)
-        return BOOKING_CANCELLED_REPLY
+        return MENU_REPLY if choice == "menu" else BOOKING_CANCELLED_REPLY
 
     name = session.get("name")
     service = session.get("service")
@@ -783,6 +817,60 @@ def handle_slot_choice(from_number, session, text):
     return f"{prefix}\n\n{slot_text}"
 
 
+def support_contact_reply():
+    """Contact details from the SUPPORT_PHONE / SUPPORT_EMAIL environment variables."""
+    phone = os.getenv("SUPPORT_PHONE", "").strip()
+    email = os.getenv("SUPPORT_EMAIL", "").strip()
+    lines = ["You can reach our team here:", ""]
+    if phone:
+        lines.append(f"Phone: {phone}")
+    if email:
+        lines.append(f"Email: {email}")
+    lines.append(f"Hours: {BUSINESS_HOURS}")
+    lines.append(f"Location: {BUSINESS_LOCATION}")
+    return "\n".join(lines)
+
+
+def start_support(session):
+    session["step"] = "support_choose"
+    return SUPPORT_OPTIONS_REPLY
+
+
+def save_support_message(from_number, session, text):
+    message = clean_text(text, MAX_INCOMING_TEXT_LENGTH)
+    if not message:
+        return "Sorry, I could not read that. Please type a shorter message, or reply 0 to go back."
+    SupportRequest.objects.create(phone_digits=number_digits(from_number), message=message)
+    reset_booking_state(session)
+    logger.info("Support request saved from %s", mask_phone(from_number))
+    return SUPPORT_SAVED_REPLY
+
+
+def handle_support(from_number, session, text):
+    """Handle a message while the customer is in the support steps. No model involved."""
+    choice = text.strip().lower().strip(".!")
+
+    if choice in SUPPORT_EXIT_WORDS:
+        reset_booking_state(session)
+        return MENU_REPLY
+
+    if session.get("step") == "support_choose":
+        if choice == "1":
+            session["step"] = "support_message"
+            return SUPPORT_ASK_REPLY
+        if choice == "2":
+            reset_booking_state(session)
+            return support_contact_reply()
+        if choice == "3":
+            reset_booking_state(session)
+            return f"We are open {BUSINESS_HOURS}, in {BUSINESS_LOCATION}."
+        if re.fullmatch(r"\d", choice):
+            return f"Please reply with 1, 2 or 3.\n\n{SUPPORT_OPTIONS_REPLY}"
+        # Anything else is taken as the message itself.
+
+    return save_support_message(from_number, session, text)
+
+
 def build_reply(from_number, text):
     """Generate the reply for one incoming message and update the session."""
     try:
@@ -798,6 +886,17 @@ def build_reply(from_number, text):
             remember(from_number, session, text, reply)
             return reply
 
+        if session.get("step") in ("support_choose", "support_message"):
+            reply = handle_support(from_number, session, text)
+            remember(from_number, session, text, reply)
+            return reply
+
+        # "menu" and "help" are answered in code so they are always the same.
+        if text.strip().lower().rstrip("?.! ") in MENU_WORDS:
+            reply = MENU_REPLY
+            remember(from_number, session, text, reply)
+            return reply
+
         history = session.get("history", [])
         last_reply = history[-1]["content"] if history else None
 
@@ -809,12 +908,17 @@ def build_reply(from_number, text):
             elif menu_choice == "2":
                 reply = build_stock_reply()
             else:
-                reply = SUPPORT_REPLY
+                reply = start_support(session)
             remember(from_number, session, text, reply)
             return reply
 
         if CANCEL_INTENT.search(text) and not CANCEL_EXCLUDE.search(text):
             reply = start_cancellation(from_number, session)
+            remember(from_number, session, text, reply)
+            return reply
+
+        if SUPPORT_INTENT.search(text):
+            reply = start_support(session)
             remember(from_number, session, text, reply)
             return reply
 
@@ -834,13 +938,20 @@ def build_reply(from_number, text):
         action = result.get("action", "none")
         booking_data = result.get("booking_data", {})
 
+        # The numbered menu is added here, and only when the model asks for it
+        # (messages that are not about the business). If the model wrote one
+        # into an answer anyway, it is removed.
+        reply = MENU_TAIL.sub("", reply).strip() or reply
+        if result.get("show_menu") is True and action == "none":
+            reply = f"{reply}\n\n{MENU_LIST}"
+
         # "save_booking" is accepted too, in case the model uses its old habit.
         if action in ("show_slots", "save_booking"):
             details = validate_details(booking_data)
             if details:
                 session["name"] = details["name"]
                 session["service"] = details["service"]
-                header = f"Thank you, {details['name']}. These times are available:"
+                header = f"Thanks, {details['name']}. Free times:"
                 reply = present_slots(session, header) or NO_SLOTS_REPLY
             else:
                 logger.warning(

@@ -14,3 +14,17 @@ class ProcessedMessage(models.Model):
 
     def __str__(self):
         return self.message_id
+
+
+class SupportRequest(models.Model):
+    """A message a customer asked the bot to pass on to the team."""
+    phone_digits = models.CharField(max_length=20, db_index=True)
+    message = models.TextField()
+    handled = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"+{self.phone_digits}: {self.message[:40]}"
