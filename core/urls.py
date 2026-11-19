@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.urls import path, include
+from django.views.generic import TemplateView
 from bookings.brand_views import brand_file, favicon
 from bookings.views import (
     dashboard,
@@ -25,4 +26,5 @@ urlpatterns = [
     path('dashboard/slots/add/', add_slots),
     path('dashboard/slots/<int:slot_id>/delete/', delete_slot),
     path('', landing, name='landing'),
+    path('', TemplateView.as_view(template_name='landing/landing.html'), name='home'),
 ]
