@@ -6,7 +6,6 @@ from bookings.views import (
     dashboard,
     update_booking,
     update_stock,
-    landing,
     add_slots,
     delete_slot,
     product_list,
@@ -25,6 +24,5 @@ urlpatterns = [
     path('dashboard/stock/<int:product_id>/update/', update_stock),
     path('dashboard/slots/add/', add_slots),
     path('dashboard/slots/<int:slot_id>/delete/', delete_slot),
-    path('', landing, name='landing'),
-    path('', TemplateView.as_view(template_name='landing/landing.html'), name='home'),
+    path('', TemplateView.as_view(template_name='landing/landing.html'), name='landing'),
 ]
